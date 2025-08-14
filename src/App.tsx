@@ -14,10 +14,11 @@ function AppContent() {
         {/* Header du jeu */}
         <div className="max-w-4xl mx-auto mb-6">
           <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-gaming text-white font-bold  bg-clip-text text-transparent">
-              MONAPOCALYPSE
-            </h1>
-            <button 
+            <img
+              src="/img/monapocalypse.png"
+              alt="Monapocalypse Logo"
+              className="h-12" />
+            <button
               onClick={() => setShowGame(false)}
               className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold transition-all duration-200 text-sm"
             >
@@ -40,11 +41,12 @@ function AppContent() {
       <header className="p-6">
         <div className="max-w-4xl mx-auto flex justify-center items-center">
           <div className="flex items-center space-x-3">
-            
-            <h1 className="text-3xl font-gaming text-white font-bold bg-clip-text text-transparent">
-              MONAPOCALYPSE
-            </h1>
-            
+
+            <img
+              src="/img/monapocalypse.png"
+              alt="Monapocalypse Logo"
+              className="h-12" />
+
           </div>
         </div>
       </header>
@@ -52,12 +54,12 @@ function AppContent() {
       {/* Contenu principal */}
       <main className="max-w-4xl mx-auto p-6">
         <div className="grid lg:grid-cols-2 gap-12 items-center min-h-[80vh]">
-          
+
           {/* Côté gauche - Description */}
           <div className="space-y-8">
             <div className="space-y-4">
               <h2 className="text-4xl font-gaming font-bold text-white leading-tight">
-                Survival. Action. 
+                Survival. Action.
                 <span className="bg-gradient-to-r from-[#836EF9] to-[#4a002b] bg-clip-text text-transparent">
                   {' '}Chain stress.
                 </span>
@@ -69,8 +71,8 @@ function AppContent() {
 
             {/* Image d'illustration */}
             <div className="flex justify-center">
-              <img 
-                src="/img/monapocalypse.png" 
+              <img
+                src="/img/cover.png"
                 alt="Monapocalypse illustration"
                 className="max-w-full h-auto rounded-lg shadow-lg"
                 draggable={false}
@@ -81,9 +83,9 @@ function AppContent() {
           {/* Côté droit - Authentification + Bouton Play */}
           <div className="flex flex-col items-center space-y-6">
             <AuthButton />
-            
+
             {authenticated && (
-              <button 
+              <button
                 onClick={() => setShowGame(true)}
                 className="px-16 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold transition-all duration-200 text-xl"
               >
