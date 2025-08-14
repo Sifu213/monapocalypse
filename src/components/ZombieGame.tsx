@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Heart, Target, Zap, Wifi } from 'lucide-react';
+import { Heart} from 'lucide-react';
 import { useRelayer } from '../lib/useRelayer';
 
 interface Player {
@@ -111,14 +111,12 @@ export default function ZombieGame() {
     click, 
     submitScoreMonad, 
     isLoading: isSubmittingScore, 
-    error: relayerError,
-    txHashes,
+    
     userAddress: playerAddress,
     isUserConnected: authenticated
   } = useRelayer();
 
-  const lastTxHash = txHashes[txHashes.length - 1] || '';
-
+ 
   // Fonction pour soumettre le score à Monad
   const submitGameScore = useCallback(async () => {
     if (!playerAddress || !authenticated || isSubmittingScore) return;

@@ -1,5 +1,5 @@
 import { usePrivy, useCrossAppAccounts } from '@privy-io/react-auth';
-import { LogIn, LogOut, Wallet, Zap, User } from 'lucide-react';
+import { LogOut, Wallet, User } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 interface MonadGameUser {
@@ -106,16 +106,7 @@ export default function AuthButton() {
     }
   };
 
-  const handleRegularLogin = async () => {
-    setIsLoading(true);
-    try {
-      await login();
-    } catch (error) {
-      console.error('Erreur Login:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  
 
   if (!ready) {
     return (

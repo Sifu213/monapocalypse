@@ -2,7 +2,6 @@ import { Web3Providers } from './lib/privy'
 import AuthButton from './components/AuthButton'
 import ZombieGame from './components/ZombieGame'
 import { usePrivy } from '@privy-io/react-auth'
-import { Skull, Gamepad2 } from 'lucide-react'
 import { useState } from 'react'
 
 function AppContent() {
