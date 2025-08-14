@@ -3,9 +3,12 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "engines": {
+    "node": "18.x"
+  },
   "scripts": {
     "dev": "concurrently \"npm run server:dev\" \"vite\"",
-    "build": "tsc -b && vite build",
+    "build": "ROLLUP_NO_NATIVE=1 tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "server": "node server.js",
@@ -14,7 +17,7 @@
     "backend": "npm run server:dev",
     "frontend-only": "vite",
     "server-only": "npm run server:dev",
-    "vercel-build": "vite build"
+    "vercel-build": "ROLLUP_NO_NATIVE=1 npm run build"
   },
   "dependencies": {
     "@privy-io/react-auth": "^2.21.2",
@@ -49,5 +52,8 @@
     "concurrently": "^8.2.2",
     "@types/express": "^4.17.21",
     "@types/cors": "^2.8.17"
+  },
+  "overrides": {
+    "rollup": "4.24.0"
   }
 }
