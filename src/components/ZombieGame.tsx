@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Heart } from 'lucide-react';
 import { useRelayer } from '../lib/useRelayer';
 import { useLeaderboard } from '../hooks/useLeaderboard';
 
@@ -46,7 +45,7 @@ interface Bullet {
   angle: number;
   speed: number;
   type?: 'normal' | 'laser' | 'plasma' | 'rocket';
-  trail?: Array<{x: number, y: number, opacity: number}>;
+  trail?: Array<{ x: number, y: number, opacity: number }>;
 }
 
 interface RocketExplosion {
@@ -460,15 +459,15 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
       opacity: 1,
       damage: 0 // Les dégâts sont appliqués une seule fois lors de la création
     };
-    
+
     setRocketExplosions(prev => [...prev, newExplosion]);
     playExplosionSound();
-    
+
     // Vérifier si le joueur est dans la zone d'explosion
     const playerDx = player.x - x;
     const playerDy = player.y - y;
     const playerDistance = Math.sqrt(playerDx * playerDx + playerDy * playerDy);
-    
+
     if (playerDistance <= DIFFICULTY_CONFIG.ROCKET_SAFE_DISTANCE) {
       // Le joueur subit des dégâts seulement si le bouclier n'est pas actif !
       if (!shieldBonus.active) {
@@ -478,21 +477,21 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
         }));
       }
     }
-    
+
     // Appliquer les dégâts aux zombies dans la zone
     setZombies(prevZombies =>
       prevZombies.map(zombie => {
         const dx = zombie.x - x;
         const dy = zombie.y - y;
         const distance = Math.sqrt(dx * dx + dy * dy);
-        
+
         if (distance <= DIFFICULTY_CONFIG.ROCKET_EXPLOSION_RADIUS) {
           const damage = zombie.isBoss
             ? DIFFICULTY_CONFIG.ROCKET_DAMAGE_BOSS
             : zombie.isChog
               ? DIFFICULTY_CONFIG.ROCKET_DAMAGE_CHOG
               : DIFFICULTY_CONFIG.ROCKET_DAMAGE_ZOMBIE;
-          
+
           const newHealth = zombie.health - damage;
           if (newHealth <= 0) {
             const points = zombie.isBoss ? 100 : zombie.isChog ? 15 : 10;
@@ -544,23 +543,23 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
       opacity: 1,
       damage: 0 // Les dégâts sont appliqués une seule fois lors de la création
     };
-    
+
     setPlasmaExplosions(prev => [...prev, newExplosion]);
-    
+
     // Appliquer les dégâts aux zombies dans la zone
     setZombies(prevZombies =>
       prevZombies.map(zombie => {
         const dx = zombie.x - x;
         const dy = zombie.y - y;
         const distance = Math.sqrt(dx * dx + dy * dy);
-        
+
         if (distance <= DIFFICULTY_CONFIG.PLASMA_EXPLOSION_RADIUS) {
           const damage = zombie.isBoss
             ? DIFFICULTY_CONFIG.PLASMA_DAMAGE_BOSS
             : zombie.isChog
               ? DIFFICULTY_CONFIG.PLASMA_DAMAGE_CHOG
               : DIFFICULTY_CONFIG.PLASMA_DAMAGE_ZOMBIE;
-          
+
           const newHealth = zombie.health - damage;
           if (newHealth <= 0) {
             const points = zombie.isBoss ? 100 : zombie.isChog ? 15 : 10;
@@ -672,12 +671,12 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
   }, [gameState, player.x, player.y, playShootSound, playLaserSound, playPlasmaSound, playRocketSound, weaponBonus.type]);
 
   // Gestion du clic pour commencer/arrêter le tir
-  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+  const handleMouseDown = useCallback(() => {
     if (gameState !== 'playing') return;
-    
+
     setIsMouseDown(true);
     setLastShotTime(0); // Permettre le tir immédiat au premier clic
-    
+
     // Tirer immédiatement
     fireBullet();
   }, [gameState, fireBullet]);
@@ -848,6 +847,8 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
     setPowerUpDrops([]);
     setWeaponBonus({ type: null, timeLeft: 0 });
     setShieldBonus({ active: false, timeLeft: 0 });
+    setIsMouseDown(false);
+    setLastShotTime(0);
     setWave(1);
     setScore(0);
     setZombiesKilled(0);
@@ -911,10 +912,10 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
       if (isMouseDown) {
         const currentTime = Date.now();
         const fireRate = weaponBonus.type === 'shotgun' ? 300 : // Shotgun plus lent
-                        weaponBonus.type === 'rocket' ? 800 : // Rocket très lent
-                        weaponBonus.type === 'plasma' ? 400 : // Plasma lent
-                        weaponBonus.type === 'laser' ? 150 : // Laser rapide
-                        200; // Arme normale
+          weaponBonus.type === 'rocket' ? 800 : // Rocket très lent
+            weaponBonus.type === 'plasma' ? 400 : // Plasma lent
+              weaponBonus.type === 'laser' ? 150 : // Laser rapide
+                200; // Arme normale
 
         if (currentTime - lastShotTime >= fireRate) {
           fireBullet();
@@ -934,7 +935,7 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
         if (bullet.type === 'laser') {
           const trail = bullet.trail || [];
           trail.push({ x: bullet.x, y: bullet.y, opacity: 1 });
-          
+
           // Limiter la longueur de la traînée et diminuer l'opacité
           newBullet.trail = trail
             .slice(-8) // Garder seulement les 8 dernières positions
@@ -1011,9 +1012,9 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
           const distance = Math.sqrt(dx * dx + dy * dy);
 
           if (distance < 30) {
-            const duration = drop.type === 'shotgun' ? 60000 : 
-                           drop.type === 'laser' ? 45000 : 
-                           drop.type === 'plasma' ? 50000 : 40000; // Rocket dure 40 secondes
+            const duration = drop.type === 'shotgun' ? 60000 :
+              drop.type === 'laser' ? 45000 :
+                drop.type === 'plasma' ? 50000 : 40000; // Rocket dure 40 secondes
             setWeaponBonus({ type: drop.type, timeLeft: duration });
             return false;
           }
@@ -1139,7 +1140,7 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
       });
 
       // Animation des explosions plasma
-      setPlasmaExplosions(prev => 
+      setPlasmaExplosions(prev =>
         prev.map(explosion => ({
           ...explosion,
           radius: Math.min(explosion.radius + 4, explosion.maxRadius),
@@ -1148,7 +1149,7 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
       );
 
       // Animation des explosions de roquettes
-      setRocketExplosions(prev => 
+      setRocketExplosions(prev =>
         prev.map(explosion => ({
           ...explosion,
           radius: Math.min(explosion.radius + 6, explosion.maxRadius), // Plus rapide que plasma
@@ -1195,22 +1196,12 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [gameState, player.x, player.y, zombies, authenticated, playerAddress, click, createPlasmaExplosion, createRocketExplosion, shieldBonus.active, playHealthSound, playShieldSound, createPowerUpDrop, fireBullet]);
+  }, [gameState, player.x, player.y, zombies, authenticated, playerAddress, click, createPlasmaExplosion, createRocketExplosion, shieldBonus.active, playHealthSound, playShieldSound, createPowerUpDrop, fireBullet, isMouseDown, lastShotTime, weaponBonus.type]);
 
   return (
     <div className="flex flex-col items-center space-y-4">
       {/* HUD */}
       <div className="flex items-center space-x-6 p-2">
-        <div className="flex items-center space-x-2">
-          <Heart className="w-5 h-5 text-red-500" />
-          <div className="w-32 h-4 bg-gray-700 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-red-500 to-green-500 transition-all duration-300"
-              style={{ width: `${(player.health / player.maxHealth) * 100}%` }}
-            />
-          </div>
-        </div>
-
         <div className="flex items-center space-x-2">
           <span className="text-white font-bold">Score: {score}</span>
         </div>
@@ -1224,31 +1215,29 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
         </div>
 
         {/* Indicateur blockchain */}
-        <div className={`flex items-center space-x-1 px-2 py-1 rounded text-xs font-bold ${
-          BLOCKCHAIN_TX_ENABLED
+        <div className={`flex items-center space-x-1 px-2 py-1 rounded text-xs font-bold ${BLOCKCHAIN_TX_ENABLED
             ? 'bg-green-600 text-white'
             : 'bg-gray-600 text-gray-300'
-        }`}>
+          }`}>
           <span>{BLOCKCHAIN_TX_ENABLED ? '🔗' : '⛔'}</span>
           <span>{BLOCKCHAIN_TX_ENABLED ? 'CHAIN ON' : 'CHAIN OFF'}</span>
         </div>
 
         {/* Indicateur d'arme bonus */}
         {weaponBonus.type && (
-          <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg ${
-            weaponBonus.type === 'shotgun' ? 'bg-orange-600' : 
-            weaponBonus.type === 'laser' ? 'bg-blue-600' : 
-            weaponBonus.type === 'plasma' ? 'bg-purple-600' : 'bg-red-600'
-          }`}>
+          <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg ${weaponBonus.type === 'shotgun' ? 'bg-orange-600' :
+              weaponBonus.type === 'laser' ? 'bg-blue-600' :
+                weaponBonus.type === 'plasma' ? 'bg-purple-600' : 'bg-red-600'
+            }`}>
             <span className="text-sm">
-              {weaponBonus.type === 'shotgun' ? '🔫' : 
-               weaponBonus.type === 'laser' ? '⚡' : 
-               weaponBonus.type === 'plasma' ? '💫' : '🚀'}
+              {weaponBonus.type === 'shotgun' ? '🔫' :
+                weaponBonus.type === 'laser' ? '⚡' :
+                  weaponBonus.type === 'plasma' ? '💫' : '🚀'}
             </span>
             <span className="text-white font-bold text-sm">
-              {weaponBonus.type === 'shotgun' ? 'SHOTGUN' : 
-               weaponBonus.type === 'laser' ? 'LASER' : 
-               weaponBonus.type === 'plasma' ? 'PLASMA' : 'ROCKET'}: {Math.ceil(weaponBonus.timeLeft / 1000)}s
+              {weaponBonus.type === 'shotgun' ? 'SHOTGUN' :
+                weaponBonus.type === 'laser' ? 'LASER' :
+                  weaponBonus.type === 'plasma' ? 'PLASMA' : 'ROCKET'}: {Math.ceil(weaponBonus.timeLeft / 1000)}s
             </span>
           </div>
         )}
@@ -1266,11 +1255,10 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
         {/* Bouton musique */}
         <button
           onClick={toggleMusic}
-          className={`flex items-center space-x-1 px-3 py-2 rounded-lg transition-colors duration-200 ${
-            musicEnabled
+          className={`flex items-center space-x-1 px-3 py-2 rounded-lg transition-colors duration-200 ${musicEnabled
               ? 'bg-green-600 hover:bg-green-700 text-white'
               : 'bg-gray-600 hover:bg-gray-700 text-gray-300'
-          }`}
+            }`}
           title={musicEnabled ? 'Couper la musique' : 'Activer la musique'}
         >
           {musicEnabled ? (
@@ -1345,11 +1333,10 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
 
               {/* Message de soumission */}
               {submitMessage && (
-                <div className={`p-3 rounded-lg ${
-                  submitMessage.type === 'success'
+                <div className={`p-3 rounded-lg ${submitMessage.type === 'success'
                     ? 'bg-green-600 text-white'
                     : 'bg-red-600 text-white'
-                }`}>
+                  }`}>
                   {submitMessage.text}
                 </div>
               )}
@@ -1361,11 +1348,10 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
                   <button
                     onClick={submitGameScore}
                     disabled={isSubmittingScore}
-                    className={`px-16 py-3 rounded-lg font-semibold transition-all duration-200 text-xl ${
-                      isSubmittingScore
+                    className={`px-16 py-3 rounded-lg font-semibold transition-all duration-200 text-xl ${isSubmittingScore
                         ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
                         : 'bg-purple-600 text-white hover:bg-purple-700'
-                    }`}
+                      }`}
                   >
                     {isSubmittingScore ? 'Submitting to Monad...' : 'Submit Score to Monad'}
                   </button>
@@ -1376,19 +1362,18 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
                   <button
                     onClick={submitToLeaderboard}
                     disabled={isSubmittingToLeaderboard || submitMessage?.type === 'success'}
-                    className={`px-16 py-3 rounded-lg font-semibold transition-all duration-200 text-xl ${
-                      isSubmittingToLeaderboard
+                    className={`px-16 py-3 rounded-lg font-semibold transition-all duration-200 text-xl ${isSubmittingToLeaderboard
                         ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
                         : submitMessage?.type === 'success'
-                        ? 'bg-green-600 text-white cursor-not-allowed'
-                        : 'bg-blue-600 text-white hover:bg-blue-700'
-                    }`}
+                          ? 'bg-green-600 text-white cursor-not-allowed'
+                          : 'bg-blue-600 text-white hover:bg-blue-700'
+                      }`}
                   >
                     {isSubmittingToLeaderboard
                       ? 'Submitting to Leaderboard...'
                       : submitMessage?.type === 'success'
-                      ? '✓ Submitted to Leaderboard'
-                      : 'Submit to Leaderboard'
+                        ? '✓ Submitted to Leaderboard'
+                        : 'Submit to Leaderboard'
                     }
                   </button>
                 )}
@@ -1439,6 +1424,34 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
               )}
             </div>
 
+            {/* Barre de vie du joueur */}
+            <div
+              className="absolute select-none pointer-events-none"
+              style={{
+                left: player.x - 40,
+                top: player.y - 50,
+                width: 80,
+                height: 20
+              }}
+            >
+
+
+              {/* Barre de vie */}
+              <div className="absolute top-2 w-16 h-2 bg-gray-800 border border-gray-600 rounded-full overflow-hidden">
+                <div
+                  className={`h-full transition-all duration-300 ${(player.health / player.maxHealth) > 0.75
+                      ? 'bg-green-500'
+                      : (player.health / player.maxHealth) > 0.25
+                        ? 'bg-yellow-400'
+                        : 'bg-red-500'
+                    }`}
+                  style={{ width: `${(player.health / player.maxHealth) * 100}%` }}
+                />
+              </div>
+
+
+            </div>
+
             {/* Zombies */}
             {zombies
               .filter(zombie =>
@@ -1471,10 +1484,9 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
                       draggable={false}
                     />
 
-                    <div className={`absolute -top-1 left-1/2 transform -translate-x-1/2 h-2 bg-gray-600 rounded-full ${zombie.isBoss ? 'w-20' : 'w-12'}`}>
-                      <div className={`h-full rounded-full transition-all duration-200 ${
-                        zombie.isBoss ? 'bg-purple-500' : zombie.isChog ? 'bg-orange-500' : 'bg-red-500'
-                      }`}
+                    <div className={`absolute -top-1 left-1/2 transform -translate-x-1/2 h-1 bg-gray-600 rounded-full ${zombie.isBoss ? 'w-20' : 'w-12'}`}>
+                      <div className={`h-full rounded-full transition-all duration-200 ${zombie.isBoss ? 'bg-purple-500' : zombie.isChog ? 'bg-orange-500' : 'bg-red-500'
+                        }`}
                         style={{ width: `${(zombie.health / zombie.maxHealth) * 100}%` }}
                       />
                     </div>
@@ -1494,19 +1506,18 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
                   height: 30
                 }}
               >
-                <div className={`w-full h-full rounded-lg border-2 flex items-center justify-center shadow-lg ${
-                  drop.type === 'shotgun'
+                <div className={`w-full h-full rounded-lg border-2 flex items-center justify-center shadow-lg ${drop.type === 'shotgun'
                     ? 'bg-orange-500 border-orange-300'
                     : drop.type === 'laser'
-                    ? 'bg-blue-500 border-blue-300'
-                    : drop.type === 'plasma'
-                    ? 'bg-purple-500 border-purple-300'
-                    : 'bg-red-500 border-red-300'
-                }`}>
+                      ? 'bg-blue-500 border-blue-300'
+                      : drop.type === 'plasma'
+                        ? 'bg-purple-500 border-purple-300'
+                        : 'bg-red-500 border-red-300'
+                  }`}>
                   <span className="text-white font-bold text-xs">
-                    {drop.type === 'shotgun' ? '🔫' : 
-                     drop.type === 'laser' ? '⚡' : 
-                     drop.type === 'plasma' ? '💫' : '🚀'}
+                    {drop.type === 'shotgun' ? '🔫' :
+                      drop.type === 'laser' ? '⚡' :
+                        drop.type === 'plasma' ? '💫' : '🚀'}
                   </span>
                 </div>
               </div>
@@ -1524,11 +1535,10 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
                   height: 30
                 }}
               >
-                <div className={`w-full h-full rounded-full border-3 flex items-center justify-center shadow-lg ${
-                  drop.type === 'health'
+                <div className={`w-full h-full rounded-full border-3 flex items-center justify-center shadow-lg ${drop.type === 'health'
                     ? 'bg-green-500 border-green-300'
                     : 'bg-cyan-500 border-cyan-300'
-                }`}>
+                  }`}>
                   <span className="text-white font-bold text-sm">
                     {drop.type === 'health' ? '💊' : '🛡️'}
                   </span>
