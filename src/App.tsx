@@ -40,7 +40,7 @@ function AppContent() {
                 onClick={() => setShowGame(false)}
                 className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold transition-all duration-200 text-sm"
               >
-                ← Retour au menu
+                ← Back to menu
               </button>
             </div>
           </div>

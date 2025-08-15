@@ -111,16 +111,16 @@ const DIFFICULTY_CONFIG = {
   // Zombies normaux
   ZOMBIE_BASE_HEALTH: 250,        // Vie de base des zombies
   ZOMBIE_HEALTH_PER_WAVE: 50,    // Vie supplémentaire par vague
-  ZOMBIE_BASE_SPEED: 0.8,        // Vitesse de base des zombies
-  ZOMBIE_SPEED_PER_WAVE: 0.1,    // Vitesse supplémentaire par vague
+  ZOMBIE_BASE_SPEED: 0.5,        // Vitesse de base des zombies
+  ZOMBIE_SPEED_PER_WAVE: 0.05,    // Vitesse supplémentaire par vague
   ZOMBIE_DAMAGE: 1,              // Dégâts des zombies sur le joueur
 
   CHOG_BASE_HEALTH: 150,        // Vie de base des chogs
   CHOG_HEALTH_PER_WAVE: 30,     // Vie supplémentaire par vague
-  CHOG_BASE_SPEED: 1.2,         // Vitesse de base des chogs (plus rapides)
-  CHOG_SPEED_PER_WAVE: 0.15,    // Vitesse supplémentaire par vague
+  CHOG_BASE_SPEED: 1,         // Vitesse de base des chogs (plus rapides)
+  CHOG_SPEED_PER_WAVE: 0.05,    // Vitesse supplémentaire par vague
   CHOG_DAMAGE: 2,               // Dégâts des chogs sur le joueur
-  CHOG_START_WAVE: 1,           // Vague à partir de laquelle les chogs apparaissent
+  CHOG_START_WAVE: 3,           // Vague à partir de laquelle les chogs apparaissent
 
   // Boss
   BOSS_BASE_HEALTH: 2000,         // Vie de base des boss
@@ -159,9 +159,9 @@ const DIFFICULTY_CONFIG = {
 };
 
 // Constantes pour les taux de drop d'armes et power-ups
-const WEAPON_DROP_RATE_ZOMBIE = 0.15; // 15% de chance pour les zombies normaux
-const WEAPON_DROP_RATE_BOSS = 0.5; // 50% de chance pour les boss
-const POWERUP_DROP_RATE_ZOMBIE = 0.08; // 8% de chance pour les zombies normaux
+const WEAPON_DROP_RATE_ZOMBIE = 0.05; // 15% de chance pour les zombies normaux
+const WEAPON_DROP_RATE_BOSS = 0.25; // 50% de chance pour les boss
+const POWERUP_DROP_RATE_ZOMBIE = 0.05; // 8% de chance pour les zombies normaux
 const POWERUP_DROP_RATE_BOSS = 0.25; // 25% de chance pour les boss
 
 export default function ZombieGame({ userData }: ZombieGameProps) {
@@ -1314,16 +1314,7 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
               <p className="text-white">Transactions: {totalTransactions}</p>
               <p className="text-white">Waves finished: {wave - 1}</p>
 
-              {/* Message de soumission */}
-              {submitMessage && (
-                <div className={`p-3 rounded-lg ${
-                  submitMessage.type === 'success'
-                    ? 'bg-green-600 text-white'
-                    : 'bg-red-600 text-white'
-                }`}>
-                  {submitMessage.text}
-                </div>
-              )}
+              
 
               {/* Boutons */}
               <div className="flex flex-col space-y-3">
