@@ -800,7 +800,7 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
         )}
 
         {gameState === 'waveTransition' && (
-          <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
             <div className="text-center space-y-4">
               <h2 className="text-3xl font-gaming font-bold text-green-400">
                 WAVE {wave} FINISHED !
