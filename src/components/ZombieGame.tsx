@@ -111,16 +111,16 @@ const DIFFICULTY_CONFIG = {
   // Zombies normaux
   ZOMBIE_BASE_HEALTH: 250,        // Vie de base des zombies
   ZOMBIE_HEALTH_PER_WAVE: 50,    // Vie supplémentaire par vague
-  ZOMBIE_BASE_SPEED: 0.5,        // Vitesse de base des zombies
-  ZOMBIE_SPEED_PER_WAVE: 0.05,    // Vitesse supplémentaire par vague
+  ZOMBIE_BASE_SPEED: 0.8,        // Vitesse de base des zombies
+  ZOMBIE_SPEED_PER_WAVE: 0.1,    // Vitesse supplémentaire par vague
   ZOMBIE_DAMAGE: 1,              // Dégâts des zombies sur le joueur
 
   CHOG_BASE_HEALTH: 150,        // Vie de base des chogs
   CHOG_HEALTH_PER_WAVE: 30,     // Vie supplémentaire par vague
-  CHOG_BASE_SPEED: 1,         // Vitesse de base des chogs (plus rapides)
-  CHOG_SPEED_PER_WAVE: 0.05,    // Vitesse supplémentaire par vague
+  CHOG_BASE_SPEED: 1.2,         // Vitesse de base des chogs (plus rapides)
+  CHOG_SPEED_PER_WAVE: 0.15,    // Vitesse supplémentaire par vague
   CHOG_DAMAGE: 2,               // Dégâts des chogs sur le joueur
-  CHOG_START_WAVE: 3,           // Vague à partir de laquelle les chogs apparaissent
+  CHOG_START_WAVE: 1,           // Vague à partir de laquelle les chogs apparaissent
 
   // Boss
   BOSS_BASE_HEALTH: 2000,         // Vie de base des boss
@@ -159,9 +159,9 @@ const DIFFICULTY_CONFIG = {
 };
 
 // Constantes pour les taux de drop d'armes et power-ups
-const WEAPON_DROP_RATE_ZOMBIE = 0.05; // 15% de chance pour les zombies normaux
-const WEAPON_DROP_RATE_BOSS = 0.25; // 50% de chance pour les boss
-const POWERUP_DROP_RATE_ZOMBIE = 0.05; // 8% de chance pour les zombies normaux
+const WEAPON_DROP_RATE_ZOMBIE = 0.15; // 15% de chance pour les zombies normaux
+const WEAPON_DROP_RATE_BOSS = 0.5; // 50% de chance pour les boss
+const POWERUP_DROP_RATE_ZOMBIE = 0.08; // 8% de chance pour les zombies normaux
 const POWERUP_DROP_RATE_BOSS = 0.25; // 25% de chance pour les boss
 
 export default function ZombieGame({ userData }: ZombieGameProps) {
@@ -188,6 +188,8 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
   const [powerUpDrops, setPowerUpDrops] = useState<PowerUpDrop[]>([]);
   const [weaponBonus, setWeaponBonus] = useState<WeaponBonus>({ type: null, timeLeft: 0 });
   const [shieldBonus, setShieldBonus] = useState<ShieldBonus>({ active: false, timeLeft: 0 });
+  const [isMouseDown, setIsMouseDown] = useState<boolean>(false);
+  const [lastShotTime, setLastShotTime] = useState<number>(0);
   const [wave, setWave] = useState(1);
   const [score, setScore] = useState(0);
   const [zombiesKilled, setZombiesKilled] = useState(0);
@@ -593,16 +595,12 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
     );
   }, [authenticated, playerAddress, click]);
 
-  // Gestion du clic pour tirer
-  const handleMouseClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+  // Fonction pour tirer une balle
+  const fireBullet = useCallback(() => {
     if (gameState !== 'playing') return;
 
-    const rect = gameRef.current?.getBoundingClientRect();
-    if (!rect) return;
-
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-    const angle = Math.atan2(mouseY - player.y, mouseX - player.x);
+    const mousePos = mousePositionRef.current;
+    const angle = Math.atan2(mousePos.y - player.y, mousePos.x - player.x);
 
     if (weaponBonus.type === 'shotgun') {
       // Tir en éventail avec 3 balles
@@ -672,6 +670,21 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
       playShootSound();
     }
   }, [gameState, player.x, player.y, playShootSound, playLaserSound, playPlasmaSound, playRocketSound, weaponBonus.type]);
+
+  // Gestion du clic pour commencer/arrêter le tir
+  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (gameState !== 'playing') return;
+    
+    setIsMouseDown(true);
+    setLastShotTime(0); // Permettre le tir immédiat au premier clic
+    
+    // Tirer immédiatement
+    fireBullet();
+  }, [gameState, fireBullet]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsMouseDown(false);
+  }, []);
 
   // Spawn des zombies
   const spawnZombies = useCallback((waveNumber: number) => {
@@ -893,6 +906,21 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
 
         return { ...prev, x: newX, y: newY };
       });
+
+      // Gestion du tir automatique si la souris est maintenue enfoncée
+      if (isMouseDown) {
+        const currentTime = Date.now();
+        const fireRate = weaponBonus.type === 'shotgun' ? 300 : // Shotgun plus lent
+                        weaponBonus.type === 'rocket' ? 800 : // Rocket très lent
+                        weaponBonus.type === 'plasma' ? 400 : // Plasma lent
+                        weaponBonus.type === 'laser' ? 150 : // Laser rapide
+                        200; // Arme normale
+
+        if (currentTime - lastShotTime >= fireRate) {
+          fireBullet();
+          setLastShotTime(currentTime);
+        }
+      }
 
       // Mouvement des balles et gestion de la traînée laser
       setBullets(prev => prev.map(bullet => {
@@ -1167,7 +1195,7 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [gameState, player.x, player.y, zombies, authenticated, playerAddress, click, createPlasmaExplosion, createRocketExplosion, shieldBonus.active, playHealthSound, playShieldSound, createPowerUpDrop]);
+  }, [gameState, player.x, player.y, zombies, authenticated, playerAddress, click, createPlasmaExplosion, createRocketExplosion, shieldBonus.active, playHealthSound, playShieldSound, createPowerUpDrop, fireBullet]);
 
   return (
     <div className="flex flex-col items-center space-y-4">
@@ -1270,7 +1298,8 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
           backgroundSize: 'cover',
           backgroundPosition: 'center'
         }}
-        onMouseDown={handleMouseClick}
+        onMouseDown={handleMouseDown}
+        onMouseUp={handleMouseUp}
         onMouseMove={handleMouseMove}
       >
         {gameState === 'menu' && (
@@ -1314,7 +1343,16 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
               <p className="text-white">Transactions: {totalTransactions}</p>
               <p className="text-white">Waves finished: {wave - 1}</p>
 
-              
+              {/* Message de soumission */}
+              {submitMessage && (
+                <div className={`p-3 rounded-lg ${
+                  submitMessage.type === 'success'
+                    ? 'bg-green-600 text-white'
+                    : 'bg-red-600 text-white'
+                }`}>
+                  {submitMessage.text}
+                </div>
+              )}
 
               {/* Boutons */}
               <div className="flex flex-col space-y-3">
