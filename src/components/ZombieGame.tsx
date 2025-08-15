@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Heart } from 'lucide-react';
 import { useRelayer } from '../lib/useRelayer';
+import { useLeaderboard } from '../hooks/useLeaderboard';
 
 interface Player {
   x: number;
@@ -42,6 +43,9 @@ interface WeaponBonus {
   timeLeft: number;
 }
 
+interface ZombieGameProps {
+  userData: { monadUsername: string | null; crossAppWallet: string | null };
+}
 
 const GAME_WIDTH = 1200;
 const GAME_HEIGHT = 600;
@@ -90,7 +94,7 @@ const DIFFICULTY_CONFIG = {
 const WEAPON_DROP_RATE_ZOMBIE = 0.15; // 15% de chance pour les zombies normaux
 const WEAPON_DROP_RATE_BOSS = 0.5; // 50% de chance pour les boss
 
-export default function ZombieGame() {
+export default function ZombieGame({ userData }: ZombieGameProps) {
   const gameRef = useRef<HTMLDivElement>(null);
   const animationRef = useRef<number>(0);
   const keysRef = useRef<{ [key: string]: boolean }>({});
@@ -122,11 +126,38 @@ export default function ZombieGame() {
     click,
     submitScoreMonad,
     isLoading: isSubmittingScore,
-
     userAddress: playerAddress,
     isUserConnected: authenticated
   } = useRelayer();
 
+
+  const { submitScore, isLoading: isSubmittingToLeaderboard } = useLeaderboard();
+  const [submitMessage, setSubmitMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const submitToLeaderboard = useCallback(async () => {
+    if (!userData.monadUsername || !userData.crossAppWallet || !authenticated || isSubmittingToLeaderboard) return;
+
+    try {
+      setSubmitMessage(null);
+
+      // Utiliser les données correctes depuis userData
+      const username = userData.monadUsername;
+      const walletAddress = userData.crossAppWallet;
+
+      await submitScore({
+        username,
+        wallet_address: walletAddress,
+        waves_completed: wave - 1, // wave - 1 car la dernière vague n'a pas été terminée
+        enemies_killed: zombiesKilled,
+        score: score
+      });
+
+      setSubmitMessage({ type: 'success', text: 'Score soumis avec succès au leaderboard !' });
+    } catch (error) {
+      console.error('Erreur lors de la soumission du score:', error);
+      setSubmitMessage({ type: 'error', text: 'Erreur lors de la soumission du score.' });
+    }
+  }, [userData.monadUsername, userData.crossAppWallet, authenticated, score, wave, zombiesKilled, submitScore, isSubmittingToLeaderboard]);
 
   // Fonction pour soumettre le score à Monad
   const submitGameScore = useCallback(async () => {
@@ -370,7 +401,7 @@ export default function ZombieGame() {
             maxHealth: chogHealth,
             speed: chogSpeed,
             isBoss: false,
-            isChog: true, // NOUVEAU
+            isChog: true,
             rotation: 0,
             scaleX: 1
           });
@@ -430,7 +461,7 @@ export default function ZombieGame() {
             maxHealth: chogHealth,
             speed: chogSpeed,
             isBoss: false,
-            isChog: true, // NOUVEAU
+            isChog: true,
             rotation: 0,
             scaleX: 1
           });
@@ -459,6 +490,7 @@ export default function ZombieGame() {
     setScore(0);
     setZombiesKilled(0);
     setTotalTransactions(0);
+    setSubmitMessage(null); // Reset du message de soumission
     waveTransitionRef.current = false;
     spawnZombies(1);
   };
@@ -530,20 +562,16 @@ export default function ZombieGame() {
         const distance = Math.sqrt(dx * dx + dy * dy);
 
         if (distance > 0) {
-          // Le GIF de base regarde vers le haut
           let rotation = 0;
           let scaleX = 1;
 
           if (dx > 0) {
-            // Joueur à droite du zombie - tourner de 90° vers la droite
             rotation = 0;
             scaleX = 1;
           } else if (dx < 0) {
-            // Joueur à gauche du zombie - tourner de 90° puis faire un mirroring
             rotation = 0;
-            scaleX = -1; // Mirroring horizontal
+            scaleX = -1;
           }
-          // Si dx === 0, le zombie garde sa rotation vers le haut (0°)
 
           return {
             ...zombie,
@@ -576,7 +604,7 @@ export default function ZombieGame() {
           const distance = Math.sqrt(dx * dx + dy * dy);
 
           if (distance < 30) {
-            const duration = 60000; // 60s pour shotgun
+            const duration = 60000;
             setWeaponBonus({ type: drop.type, timeLeft: duration });
             return false;
           }
@@ -616,14 +644,12 @@ export default function ZombieGame() {
                       const points = z.isBoss ? 100 : z.isChog ? 15 : 10;
                       setScore(prev => prev + points);
                       setZombiesKilled(prev => prev + 1);
-                      setTotalTransactions(prev => prev + 1); // Compter chaque kill comme une transaction
+                      setTotalTransactions(prev => prev + 1);
 
-                      // Envoyer transaction click (non-bloquante)
                       if (authenticated && playerAddress) {
                         click();
                       }
 
-                      // Chance de drop d'arme selon les constantes
                       const dropChance = z.isBoss ? WEAPON_DROP_RATE_BOSS : WEAPON_DROP_RATE_ZOMBIE;
                       if (Math.random() < dropChance) {
                         const newDrop: WeaponDrop = {
@@ -697,16 +723,13 @@ export default function ZombieGame() {
               style={{ width: `${(player.health / player.maxHealth) * 100}%` }}
             />
           </div>
-
         </div>
 
         <div className="flex items-center space-x-2">
-
           <span className="text-white font-bold">Score: {score}</span>
         </div>
 
         <div className="flex items-center space-x-2">
-
           <span className="text-white font-bold">Wave: {wave}</span>
         </div>
 
@@ -795,30 +818,71 @@ export default function ZombieGame() {
 
         {gameState === 'gameOver' && (
           <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center">
-            <div className="text-center space-y-4">
+            <div className="text-center space-y-4 max-w-md">
               <h2 className="text-4xl font-gaming font-bold text-red-500">GAME OVER</h2>
               <p className="text-white text-xl">Final score: {score}</p>
               <p className="text-white">Kills: {zombiesKilled}</p>
               <p className="text-white">Transactions: {totalTransactions}</p>
-              <p className="text-white">Waves finished: {wave}</p>
-              {authenticated && playerAddress && (
-                <button
-                  onClick={submitGameScore}
-                  disabled={isSubmittingScore}
-                  className={`px-16 py-3 mr-6 rounded-lg font-semibold transition-all duration-200 text-xl ${isSubmittingScore
-                    ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                    : 'bg-purple-600 text-white hover:bg-purple-700'
-                    }`}
-                >
-                  {isSubmittingScore ? 'Submitting to Monad...' : 'Submit Score to Monad'}
-                </button>
+              <p className="text-white">Waves finished: {wave - 1}</p>
+              
+              {/* Message de soumission */}
+              {submitMessage && (
+                <div className={`p-3 rounded-lg ${
+                  submitMessage.type === 'success' 
+                    ? 'bg-green-600 text-white' 
+                    : 'bg-red-600 text-white'
+                }`}>
+                  {submitMessage.text}
+                </div>
               )}
-              <button
-                onClick={startGame}
-                className="px-16 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold transition-all duration-200 text-xl"
-              >
-                REPLAY
-              </button>
+
+              {/* Boutons */}
+              <div className="flex flex-col space-y-3">
+                {/* Bouton Submit Score to Monad (existant) */}
+                {authenticated && playerAddress && (
+                  <button
+                    onClick={submitGameScore}
+                    disabled={isSubmittingScore}
+                    className={`px-16 py-3 rounded-lg font-semibold transition-all duration-200 text-xl ${
+                      isSubmittingScore
+                        ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                        : 'bg-purple-600 text-white hover:bg-purple-700'
+                    }`}
+                  >
+                    {isSubmittingScore ? 'Submitting to Monad...' : 'Submit Score to Monad'}
+                  </button>
+                )}
+
+                {/* Nouveau bouton Submit to Leaderboard */}
+                {authenticated && userData.monadUsername && userData.crossAppWallet && (
+                  <button
+                    onClick={submitToLeaderboard}
+                    disabled={isSubmittingToLeaderboard || submitMessage?.type === 'success'}
+                    className={`px-16 py-3 rounded-lg font-semibold transition-all duration-200 text-xl ${
+                      isSubmittingToLeaderboard
+                        ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                        : submitMessage?.type === 'success'
+                        ? 'bg-green-600 text-white cursor-not-allowed'
+                        : 'bg-blue-600 text-white hover:bg-blue-700'
+                    }`}
+                  >
+                    {isSubmittingToLeaderboard 
+                      ? 'Submitting to Leaderboard...' 
+                      : submitMessage?.type === 'success'
+                      ? '✓ Submitted to Leaderboard'
+                      : 'Submit to Leaderboard'
+                    }
+                  </button>
+                )}
+
+                {/* Bouton Replay */}
+                <button
+                  onClick={startGame}
+                  className="px-16 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold transition-all duration-200 text-xl"
+                >
+                  REPLAY
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -883,8 +947,6 @@ export default function ZombieGame() {
                         style={{ width: `${(zombie.health / zombie.maxHealth) * 100}%` }}
                       />
                     </div>
-
-
                   </div>
                 );
               })}

@@ -1,6 +1,6 @@
 import { usePrivy, useCrossAppAccounts } from '@privy-io/react-auth';
 import { LogOut, Wallet, User } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 interface MonadGameUser {
   id: number;
@@ -13,7 +13,11 @@ interface MonadGameResponse {
   user?: MonadGameUser;
 }
 
-export default function AuthButton() {
+interface AuthButtonProps {
+  onUserDataChange?: (userData: { monadUsername: string | null; crossAppWallet: string | null }) => void;
+}
+
+export default function AuthButton({ onUserDataChange }: AuthButtonProps) {
   const { user, ready, authenticated, login, logout } = usePrivy();
   const { loginWithCrossAppAccount } = useCrossAppAccounts();
   const [isLoading, setIsLoading] = useState(false);
@@ -21,7 +25,7 @@ export default function AuthButton() {
   const [isLoadingUsername, setIsLoadingUsername] = useState(false);
 
   // Fonction pour extraire l'adresse wallet depuis Privy Cross App
-  const extractWalletFromPrivy = () => {
+  const extractWalletFromPrivy = useCallback(() => {
     if (!user) return null;
     
     const userData = user as any;
@@ -38,10 +42,10 @@ export default function AuthButton() {
     }
 
     return null;
-  };
+  }, [user]);
 
   // Fonction pour récupérer le username depuis l'API Monad Games ID
-  const fetchMonadUsername = async (walletAddress: string) => {
+  const fetchMonadUsername = useCallback(async (walletAddress: string) => {
     setIsLoadingUsername(true);
     try {
       console.log(`🔍 Recherche username pour wallet: ${walletAddress}`);
@@ -68,7 +72,7 @@ export default function AuthButton() {
     } finally {
       setIsLoadingUsername(false);
     }
-  };
+  }, []);
 
   // Effet pour récupérer le username quand l'utilisateur se connecte
   useEffect(() => {
@@ -85,7 +89,18 @@ export default function AuthButton() {
     } else {
       setMonadUsername(null);
     }
-  }, [authenticated, user]);
+  }, [authenticated, user, extractWalletFromPrivy, fetchMonadUsername]);
+
+  // Effet pour notifier le parent des changements de données utilisateur
+  useEffect(() => {
+    const crossAppWallet = extractWalletFromPrivy();
+    if (onUserDataChange) {
+      onUserDataChange({
+        monadUsername,
+        crossAppWallet
+      });
+    }
+  }, [monadUsername, extractWalletFromPrivy, onUserDataChange]);
 
   const handleCrossAppLogin = async () => {
     setIsLoading(true);

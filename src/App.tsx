@@ -1,12 +1,23 @@
 import { Web3Providers } from './lib/privy'
 import AuthButton from './components/AuthButton'
 import ZombieGame from './components/ZombieGame'
+import LeaderboardDialog from './components/LeaderboardDialog'
 import { usePrivy } from '@privy-io/react-auth'
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
+import { Trophy } from 'lucide-react'
 
 function AppContent() {
   const { authenticated } = usePrivy();
   const [showGame, setShowGame] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [userData, setUserData] = useState<{ monadUsername: string | null; crossAppWallet: string | null }>({
+    monadUsername: null,
+    crossAppWallet: null
+  });
+
+  const handleUserDataChange = useCallback((newUserData: { monadUsername: string | null; crossAppWallet: string | null }) => {
+    setUserData(newUserData);
+  }, []);
 
   if (showGame && authenticated) {
     return (
@@ -18,19 +29,34 @@ function AppContent() {
               src="/img/monapocalypse.png"
               alt="Monapocalypse Logo"
               className="h-12" />
-            <button
-              onClick={() => setShowGame(false)}
-              className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold transition-all duration-200 text-sm"
-            >
-              ← Retour au menu
-            </button>
+            <div className="flex space-x-4">
+              <button
+                onClick={() => setShowLeaderboard(true)}
+                className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold transition-all duration-200 text-sm"
+              >
+                
+                <span>Leaderboard</span>
+              </button>
+              <button
+                onClick={() => setShowGame(false)}
+                className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold transition-all duration-200 text-sm"
+              >
+                ← Retour au menu
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Jeu */}
         <div className="flex justify-center">
-          <ZombieGame />
+          <ZombieGame userData={userData} />
         </div>
+
+        {/* Dialog Leaderboard */}
+        <LeaderboardDialog 
+          isOpen={showLeaderboard} 
+          onClose={() => setShowLeaderboard(false)} 
+        />
       </div>
     );
   }
@@ -41,12 +67,10 @@ function AppContent() {
       <header className="p-6">
         <div className="max-w-4xl mx-auto flex justify-center items-center">
           <div className="flex items-center space-x-3">
-
             <img
               src="/img/monapocalypse.png"
               alt="Monapocalypse Logo"
               className="h-12" />
-
           </div>
         </div>
       </header>
@@ -59,10 +83,8 @@ function AppContent() {
           <div className="space-y-8">
             <div className="space-y-4">
               <h2 className="text-4xl font-gaming font-bold text-white leading-tight">
-                Survival. Action.
-                <span className="bg-gradient-to-r from-[#836EF9] to-[#4a002b] bg-clip-text text-transparent">
-                  {' '}Chain stress.
-                </span>
+                Survival. Action. Chain stress.
+                
               </h2>
               <p className="text-xl text-gray-300 leading-relaxed">
                 Face monanimals zombies waves and boss ! Stress the Monad chain while playing and climb the global leaderboard!
@@ -80,21 +102,37 @@ function AppContent() {
             </div>
           </div>
 
-          {/* Côté droit - Authentification + Bouton Play */}
+          {/* Côté droit - Authentification + Boutons */}
           <div className="flex flex-col items-center space-y-6">
-            <AuthButton />
+            <AuthButton onUserDataChange={handleUserDataChange} />
 
             {authenticated && (
-              <button
-                onClick={() => setShowGame(true)}
-                className="px-16 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold transition-all duration-200 text-xl"
-              >
-                Play
-              </button>
+              <div className="flex flex-col space-y-4">
+                <button
+                  onClick={() => setShowGame(true)}
+                  className="px-16 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold transition-all duration-200 text-xl"
+                >
+                  Play
+                </button>
+                
+                <button
+                  onClick={() => setShowLeaderboard(true)}
+                  className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold transition-all duration-200 text-xl"
+                >
+                  
+                  <span>Leaderboard</span>
+                </button>
+              </div>
             )}
           </div>
         </div>
       </main>
+
+      {/* Dialog Leaderboard */}
+      <LeaderboardDialog 
+        isOpen={showLeaderboard} 
+        onClose={() => setShowLeaderboard(false)} 
+      />
     </div>
   );
 }
