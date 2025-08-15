@@ -46,6 +46,7 @@ interface Bullet {
   speed: number;
   type?: 'normal' | 'laser' | 'plasma' | 'rocket';
   trail?: Array<{ x: number, y: number, opacity: number }>;
+  createdAt: number;
 }
 
 interface RocketExplosion {
@@ -163,12 +164,21 @@ const WEAPON_DROP_RATE_BOSS = 0.5; // 50% de chance pour les boss
 const POWERUP_DROP_RATE_ZOMBIE = 0.08; // 8% de chance pour les zombies normaux
 const POWERUP_DROP_RATE_BOSS = 0.25; // 25% de chance pour les boss
 
+const BULLET_CONFIG = {
+  MAX_LIFETIME: 8000, // 8 secondes maximum pour toute balle
+  BOUNDARY_MARGIN: 50, // Marge pour la suppression hors limites (plus stricte)
+  CLEANUP_INTERVAL: 2000, // Nettoyage toutes les 2 secondes
+  MAX_BULLETS: 150 // Maximum de balles simultanées
+};
+
 export default function ZombieGame({ userData }: ZombieGameProps) {
   const gameRef = useRef<HTMLDivElement>(null);
   const animationRef = useRef<number>(0);
   const keysRef = useRef<{ [key: string]: boolean }>({});
   const waveTransitionRef = useRef<boolean>(false);
   const mousePositionRef = useRef<{ x: number, y: number }>({ x: 0, y: 0 });
+  const lastCleanupRef = useRef<number>(0); // Pour le nettoyage périodique
+  const bulletCounterRef = useRef<number>(0); // Compteur unique pour les IDs de balles
 
   const [gameState, setGameState] = useState<'menu' | 'playing' | 'gameOver' | 'waveTransition'>('menu');
   const [player, setPlayer] = useState<Player>({
@@ -194,7 +204,7 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
   const [zombiesKilled, setZombiesKilled] = useState(0);
   const [totalTransactions, setTotalTransactions] = useState(0);
   const [playerRotation, setPlayerRotation] = useState(0);
-  const [musicEnabled, setMusicEnabled] = useState(true);
+  const [soundEnabled, setSoundEnabled] = useState(true);
   const musicRef = useRef<HTMLAudioElement | null>(null);
 
   // Récupération des fonctions du relayer via le hook
@@ -208,6 +218,47 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
 
   const { submitScore, isLoading: isSubmittingToLeaderboard } = useLeaderboard();
   const [submitMessage, setSubmitMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const isBulletOutOfBounds = useCallback((bullet: Bullet): boolean => {
+  return (
+    bullet.x < 0 || 
+    bullet.x > GAME_WIDTH ||
+    bullet.y < 0 || 
+    bullet.y > GAME_HEIGHT
+  );
+}, []);
+
+  // Fonction pour vérifier si une balle est trop ancienne
+  const isBulletTooOld = useCallback((bullet: Bullet, currentTime: number): boolean => {
+    return (currentTime - bullet.createdAt) > BULLET_CONFIG.MAX_LIFETIME;
+  }, []);
+
+  // Fonction de nettoyage des balles avec plusieurs critères
+  const cleanupBullets = useCallback((currentBullets: Bullet[]): Bullet[] => {
+    const currentTime = Date.now();
+
+    let validBullets = currentBullets.filter(bullet => {
+      // Critère 1: Pas hors limites
+      if (isBulletOutOfBounds(bullet)) return false;
+
+      // Critère 2: Pas trop ancienne
+      if (isBulletTooOld(bullet, currentTime)) return false;
+
+      // Critère 3: ID valide
+      if (!bullet.id || typeof bullet.id !== 'number') return false;
+
+      return true;
+    });
+
+    // Critère 4: Limiter le nombre total de balles
+    if (validBullets.length > BULLET_CONFIG.MAX_BULLETS) {
+      // Garder les balles les plus récentes
+      validBullets.sort((a, b) => b.createdAt - a.createdAt);
+      validBullets = validBullets.slice(0, BULLET_CONFIG.MAX_BULLETS);
+    }
+
+    return validBullets;
+  }, [isBulletOutOfBounds, isBulletTooOld]);
 
   const submitToLeaderboard = useCallback(async () => {
     if (!userData.monadUsername || !userData.crossAppWallet || !authenticated || isSubmittingToLeaderboard) return;
@@ -293,12 +344,12 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
   }, []);
 
   const playMusic = useCallback(() => {
-    if (musicRef.current && musicEnabled) {
+    if (musicRef.current && soundEnabled) {
       musicRef.current.play().catch(e => {
         console.log('Music play failed:', e);
       });
     }
-  }, [musicEnabled]);
+  }, [soundEnabled]);
 
   const pauseMusic = useCallback(() => {
     if (musicRef.current) {
@@ -306,17 +357,17 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
     }
   }, []);
 
-  const toggleMusic = useCallback(() => {
-    setMusicEnabled(prev => {
-      const newValue = !prev;
-      if (newValue && (gameState === 'playing' || gameState === 'waveTransition')) {
-        playMusic();
-      } else {
-        pauseMusic();
-      }
-      return newValue;
-    });
-  }, [gameState, playMusic, pauseMusic]);
+  const toggleSound = useCallback(() => {
+  setSoundEnabled(prev => {
+    const newValue = !prev;
+    if (newValue && (gameState === 'playing' || gameState === 'waveTransition')) {
+      playMusic();
+    } else {
+      pauseMusic();
+    }
+    return newValue;
+  });
+}, [gameState, playMusic, pauseMusic]);
 
   // Initialiser la musique au premier rendu
   useEffect(() => {
@@ -331,108 +382,116 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
 
   // Gestion de la musique selon l'état du jeu
   useEffect(() => {
-    if ((gameState === 'playing' || gameState === 'waveTransition') && musicEnabled) {
+    if ((gameState === 'playing' || gameState === 'waveTransition') && soundEnabled) {
       playMusic();
     } else if (gameState === 'menu' || gameState === 'gameOver') {
       pauseMusic();
     }
-  }, [gameState, musicEnabled, playMusic, pauseMusic]);
+  }, [gameState, soundEnabled, playMusic, pauseMusic]);
 
   const playShootSound = useCallback(() => {
-    try {
-      const audio = new Audio('/sounds/bullet.wav');
-      audio.volume = 0.3;
-      audio.play().catch(e => {
-        console.log('Audio play failed:', e);
-      });
-    } catch (error) {
-      console.log('Audio creation failed:', error);
-    }
-  }, []);
+  if (!soundEnabled) return; // AJOUTER CETTE LIGNE
+  try {
+    const audio = new Audio('/sounds/bullet.wav');
+    audio.volume = 0.3;
+    audio.play().catch(e => {
+      console.log('Audio play failed:', e);
+    });
+  } catch (error) {
+    console.log('Audio creation failed:', error);
+  }
+}, [soundEnabled]); // AJOUTER soundEnabled dans les dépendances
 
   const playLaserSound = useCallback(() => {
-    try {
-      const audio = new Audio('/sounds/laser.wav');
-      audio.volume = 0.4;
-      audio.play().catch(e => {
-        console.log('Laser audio play failed:', e);
-      });
-    } catch (error) {
-      console.log('Laser audio creation failed:', error);
-    }
-  }, []);
+  if (!soundEnabled) return; // AJOUTER CETTE LIGNE
+  try {
+    const audio = new Audio('/sounds/laser.wav');
+    audio.volume = 0.4;
+    audio.play().catch(e => {
+      console.log('Laser audio play failed:', e);
+    });
+  } catch (error) {
+    console.log('Laser audio creation failed:', error);
+  }
+}, [soundEnabled]); // AJOUTER soundEnabled dans les dépendances
 
   const playPlasmaSound = useCallback(() => {
-    try {
-      const audio = new Audio('/sounds/plasma.wav');
-      audio.volume = 0.5;
-      audio.play().catch(e => {
-        console.log('Plasma audio play failed:', e);
-      });
-    } catch (error) {
-      console.log('Plasma audio creation failed:', error);
-    }
-  }, []);
+  if (!soundEnabled) return; // AJOUTER CETTE LIGNE
+  try {
+    const audio = new Audio('/sounds/plasma.wav');
+    audio.volume = 0.5;
+    audio.play().catch(e => {
+      console.log('Plasma audio play failed:', e);
+    });
+  } catch (error) {
+    console.log('Plasma audio creation failed:', error);
+  }
+}, [soundEnabled]); // AJOUTER soundEnabled dans les dépendances
 
   const playRocketSound = useCallback(() => {
-    try {
-      const audio = new Audio('/sounds/rocket.wav');
-      audio.volume = 0.6;
-      audio.play().catch(e => {
-        console.log('Rocket audio play failed:', e);
-      });
-    } catch (error) {
-      console.log('Rocket audio creation failed:', error);
-    }
-  }, []);
+  if (!soundEnabled) return; // AJOUTER CETTE LIGNE
+  try {
+    const audio = new Audio('/sounds/rocket.wav');
+    audio.volume = 0.6;
+    audio.play().catch(e => {
+      console.log('Rocket audio play failed:', e);
+    });
+  } catch (error) {
+    console.log('Rocket audio creation failed:', error);
+  }
+}, [soundEnabled]); // AJOUTER soundEnabled dans les dépendances
 
   const playExplosionSound = useCallback(() => {
-    try {
-      const audio = new Audio('/sounds/explosion.wav');
-      audio.volume = 0.7;
-      audio.play().catch(e => {
-        console.log('Explosion audio play failed:', e);
-      });
-    } catch (error) {
-      console.log('Explosion audio creation failed:', error);
-    }
-  }, []);
+  if (!soundEnabled) return; // AJOUTER CETTE LIGNE
+  try {
+    const audio = new Audio('/sounds/explosion.wav');
+    audio.volume = 0.7;
+    audio.play().catch(e => {
+      console.log('Explosion audio play failed:', e);
+    });
+  } catch (error) {
+    console.log('Explosion audio creation failed:', error);
+  }
+}, [soundEnabled]); // AJOUTER soundEnabled dans les dépendances
 
   const playHealthSound = useCallback(() => {
-    try {
-      const audio = new Audio('/sounds/health.wav');
-      audio.volume = 0.5;
-      audio.play().catch(e => {
-        console.log('Health audio play failed:', e);
-      });
-    } catch (error) {
-      console.log('Health audio creation failed:', error);
-    }
-  }, []);
+  if (!soundEnabled) return; // AJOUTER CETTE LIGNE
+  try {
+    const audio = new Audio('/sounds/health.wav');
+    audio.volume = 0.5;
+    audio.play().catch(e => {
+      console.log('Health audio play failed:', e);
+    });
+  } catch (error) {
+    console.log('Health audio creation failed:', error);
+  }
+}, [soundEnabled]); // AJOUTER soundEnabled dans les dépendances
 
   const playShieldSound = useCallback(() => {
-    try {
-      const audio = new Audio('/sounds/shield.wav');
-      audio.volume = 0.6;
-      audio.play().catch(e => {
-        console.log('Shield audio play failed:', e);
-      });
-    } catch (error) {
-      console.log('Shield audio creation failed:', error);
-    }
-  }, []);
+  if (!soundEnabled) return; // AJOUTER CETTE LIGNE
+  try {
+    const audio = new Audio('/sounds/shield.wav');
+    audio.volume = 0.6;
+    audio.play().catch(e => {
+      console.log('Shield audio play failed:', e);
+    });
+  } catch (error) {
+    console.log('Shield audio creation failed:', error);
+  }
+}, [soundEnabled]); // AJOUTER soundEnabled dans les dépendances
 
   const playBossSound = useCallback(() => {
-    try {
-      const audio = new Audio('/sounds/boss.mp3');
-      audio.volume = 0.4;
-      audio.play().catch(e => {
-        console.log('Boss audio play failed:', e);
-      });
-    } catch (error) {
-      console.log('Boss audio creation failed:', error);
-    }
-  }, []);
+  if (!soundEnabled) return; // AJOUTER CETTE LIGNE
+  try {
+    const audio = new Audio('/sounds/boss.mp3');
+    audio.volume = 0.4;
+    audio.play().catch(e => {
+      console.log('Boss audio play failed:', e);
+    });
+  } catch (error) {
+    console.log('Boss audio creation failed:', error);
+  }
+}, [soundEnabled]); // AJOUTER soundEnabled dans les dépendances
 
   // Fonction pour créer un drop de power-up
   const createPowerUpDrop = useCallback((x: number, y: number) => {
@@ -600,75 +659,81 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
 
     const mousePos = mousePositionRef.current;
     const angle = Math.atan2(mousePos.y - player.y, mousePos.x - player.x);
+    const currentTime = Date.now();
+    bulletCounterRef.current += 1; // Incrémentation du compteur
 
     if (weaponBonus.type === 'shotgun') {
       // Tir en éventail avec 3 balles
       const spread = Math.PI / 12;
       const angles = [angle - spread, angle, angle + spread];
 
-      angles.forEach((bulletAngle, index) => {
-        const newBullet: Bullet = {
-          id: Date.now() + index,
-          x: player.x,
-          y: player.y,
-          angle: bulletAngle,
-          speed: 8,
-          type: 'normal'
-        };
-        setBullets(prev => [...prev, newBullet]);
-      });
+      const newBullets: Bullet[] = angles.map((bulletAngle, index) => ({
+        id: currentTime + bulletCounterRef.current + index * 0.1, // ID unique
+        x: player.x,
+        y: player.y,
+        angle: bulletAngle,
+        speed: 8,
+        type: 'normal',
+        createdAt: currentTime
+      }));
+
+      setBullets(prev => cleanupBullets([...prev, ...newBullets]));
       playShootSound();
     } else if (weaponBonus.type === 'laser') {
       // Tir laser avec traînée
       const newBullet: Bullet = {
-        id: Date.now(),
+        id: currentTime + bulletCounterRef.current,
         x: player.x,
         y: player.y,
         angle,
-        speed: 12, // Plus rapide que les balles normales
+        speed: 12,
         type: 'laser',
-        trail: []
+        trail: [],
+        createdAt: currentTime
       };
-      setBullets(prev => [...prev, newBullet]);
+      setBullets(prev => cleanupBullets([...prev, newBullet]));
       playLaserSound();
     } else if (weaponBonus.type === 'plasma') {
-      // Tir plasma - plus lent mais explosion à l'impact
+      // Tir plasma
       const newBullet: Bullet = {
-        id: Date.now(),
+        id: currentTime + bulletCounterRef.current,
         x: player.x,
         y: player.y,
         angle,
-        speed: 6, // Plus lent que les autres projectiles
-        type: 'plasma'
+        speed: 6,
+        type: 'plasma',
+        createdAt: currentTime
       };
-      setBullets(prev => [...prev, newBullet]);
+      setBullets(prev => cleanupBullets([...prev, newBullet]));
       playPlasmaSound();
     } else if (weaponBonus.type === 'rocket') {
-      // Tir roquette - très lent mais explosion massive
+      // Tir roquette
       const newBullet: Bullet = {
-        id: Date.now(),
+        id: currentTime + bulletCounterRef.current,
         x: player.x,
         y: player.y,
         angle,
-        speed: 4, // Plus lent que tous les autres projectiles
-        type: 'rocket'
+        speed: 4,
+        type: 'rocket',
+        createdAt: currentTime
       };
-      setBullets(prev => [...prev, newBullet]);
+      setBullets(prev => cleanupBullets([...prev, newBullet]));
       playRocketSound();
     } else {
-      // Tir normal avec une seule balle
+      // Tir normal
       const newBullet: Bullet = {
-        id: Date.now(),
+        id: currentTime + bulletCounterRef.current,
         x: player.x,
         y: player.y,
         angle,
         speed: 8,
-        type: 'normal'
+        type: 'normal',
+        createdAt: currentTime
       };
-      setBullets(prev => [...prev, newBullet]);
+      setBullets(prev => cleanupBullets([...prev, newBullet]));
       playShootSound();
     }
-  }, [gameState, player.x, player.y, playShootSound, playLaserSound, playPlasmaSound, playRocketSound, weaponBonus.type]);
+  }, [gameState, player.x, player.y, playShootSound, playLaserSound, playPlasmaSound, playRocketSound, weaponBonus.type, cleanupBullets]);
 
   // Gestion du clic pour commencer/arrêter le tir
   const handleMouseDown = useCallback(() => {
@@ -856,6 +921,8 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
     setSubmitMessage(null); // Reset du message de soumission
     waveTransitionRef.current = false;
     spawnZombies(1);
+    bulletCounterRef.current = 0; // Reset du compteur de balles
+    lastCleanupRef.current = 0; // Reset du timer de nettoyage
   };
 
   // Effet séparé pour gérer les transitions de vague
@@ -892,6 +959,11 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
     if (gameState !== 'playing') return;
 
     const gameLoop = () => {
+      const currentTime = Date.now();
+      if (currentTime - lastCleanupRef.current > BULLET_CONFIG.CLEANUP_INTERVAL) {
+        setBullets(prev => cleanupBullets(prev));
+        lastCleanupRef.current = currentTime;
+      }
       // Mouvement du joueur
       setPlayer(prev => {
         let newX = prev.x;
@@ -924,32 +996,34 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
       }
 
       // Mouvement des balles et gestion de la traînée laser
-      setBullets(prev => prev.map(bullet => {
-        const newBullet = {
-          ...bullet,
-          x: bullet.x + Math.cos(bullet.angle) * bullet.speed,
-          y: bullet.y + Math.sin(bullet.angle) * bullet.speed
-        };
+      // Mouvement des balles et gestion de la traînée laser avec nettoyage automatique
+      setBullets(prev => {
+        const updatedBullets = prev.map(bullet => {
+          const newBullet = {
+            ...bullet,
+            x: bullet.x + Math.cos(bullet.angle) * bullet.speed,
+            y: bullet.y + Math.sin(bullet.angle) * bullet.speed
+          };
 
-        // Gestion de la traînée pour les lasers
-        if (bullet.type === 'laser') {
-          const trail = bullet.trail || [];
-          trail.push({ x: bullet.x, y: bullet.y, opacity: 1 });
+          // Gestion de la traînée pour les lasers
+          if (bullet.type === 'laser') {
+            const trail = bullet.trail || [];
+            trail.push({ x: bullet.x, y: bullet.y, opacity: 1 });
 
-          // Limiter la longueur de la traînée et diminuer l'opacité
-          newBullet.trail = trail
-            .slice(-8) // Garder seulement les 8 dernières positions
-            .map((point, index) => ({
-              ...point,
-              opacity: (index + 1) / 8 // Opacité dégradée
-            }));
-        }
+            newBullet.trail = trail
+              .slice(-8)
+              .map((point, index) => ({
+                ...point,
+                opacity: (index + 1) / 8
+              }));
+          }
 
-        return newBullet;
-      }).filter(bullet =>
-        bullet.x > -10 && bullet.x < GAME_WIDTH + 10 &&
-        bullet.y > -10 && bullet.y < GAME_HEIGHT + 10
-      ));
+          return newBullet;
+        });
+
+        // Appliquer le nettoyage après le mouvement
+        return cleanupBullets(updatedBullets);
+      });
 
       // Mouvement des zombies vers le joueur
       setZombies(prev => prev.map(zombie => {
@@ -1136,7 +1210,7 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
           });
         });
 
-        return prevBullets.filter(bullet => !bulletsToRemove.has(bullet.id));
+        return cleanupBullets(prevBullets.filter(bullet => !bulletsToRemove.has(bullet.id)));
       });
 
       // Animation des explosions plasma
@@ -1196,7 +1270,7 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [gameState, player.x, player.y, zombies, authenticated, playerAddress, click, createPlasmaExplosion, createRocketExplosion, shieldBonus.active, playHealthSound, playShieldSound, createPowerUpDrop, fireBullet, isMouseDown, lastShotTime, weaponBonus.type]);
+  }, [gameState, player.x, player.y, zombies, authenticated, playerAddress, click, createPlasmaExplosion, createRocketExplosion, shieldBonus.active, playHealthSound, playShieldSound, createPowerUpDrop, fireBullet, isMouseDown, lastShotTime, weaponBonus.type,cleanupBullets]);
 
   return (
     <div className="flex flex-col items-center space-y-4">
@@ -1216,8 +1290,8 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
 
         {/* Indicateur blockchain */}
         <div className={`flex items-center space-x-1 px-2 py-1 rounded text-xs font-bold ${BLOCKCHAIN_TX_ENABLED
-            ? 'bg-green-600 text-white'
-            : 'bg-gray-600 text-gray-300'
+          ? 'bg-green-600 text-white'
+          : 'bg-gray-600 text-gray-300'
           }`}>
           <span>{BLOCKCHAIN_TX_ENABLED ? '🔗' : '⛔'}</span>
           <span>{BLOCKCHAIN_TX_ENABLED ? 'CHAIN ON' : 'CHAIN OFF'}</span>
@@ -1226,8 +1300,8 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
         {/* Indicateur d'arme bonus */}
         {weaponBonus.type && (
           <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg ${weaponBonus.type === 'shotgun' ? 'bg-orange-600' :
-              weaponBonus.type === 'laser' ? 'bg-blue-600' :
-                weaponBonus.type === 'plasma' ? 'bg-purple-600' : 'bg-red-600'
+            weaponBonus.type === 'laser' ? 'bg-blue-600' :
+              weaponBonus.type === 'plasma' ? 'bg-purple-600' : 'bg-red-600'
             }`}>
             <span className="text-sm">
               {weaponBonus.type === 'shotgun' ? '🔫' :
@@ -1254,14 +1328,14 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
 
         {/* Bouton musique */}
         <button
-          onClick={toggleMusic}
-          className={`flex items-center space-x-1 px-3 py-2 rounded-lg transition-colors duration-200 ${musicEnabled
-              ? 'bg-green-600 hover:bg-green-700 text-white'
-              : 'bg-gray-600 hover:bg-gray-700 text-gray-300'
+          onClick={toggleSound}
+          className={`flex items-center space-x-1 px-3 py-2 rounded-lg transition-colors duration-200 ${soundEnabled
+            ? 'bg-green-600 hover:bg-green-700 text-white'
+            : 'bg-gray-600 hover:bg-gray-700 text-gray-300'
             }`}
-          title={musicEnabled ? 'Couper la musique' : 'Activer la musique'}
+          title={soundEnabled ? 'Cut sound' : 'Active sound'}
         >
-          {musicEnabled ? (
+          {soundEnabled ? (
             <>
               <span className="text-sm">🎵</span>
               <span className="text-xs">ON</span>
@@ -1334,8 +1408,8 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
               {/* Message de soumission */}
               {submitMessage && (
                 <div className={`p-3 rounded-lg ${submitMessage.type === 'success'
-                    ? 'bg-green-600 text-white'
-                    : 'bg-red-600 text-white'
+                  ? 'bg-green-600 text-white'
+                  : 'bg-red-600 text-white'
                   }`}>
                   {submitMessage.text}
                 </div>
@@ -1349,8 +1423,8 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
                     onClick={submitGameScore}
                     disabled={isSubmittingScore}
                     className={`px-16 py-3 rounded-lg font-semibold transition-all duration-200 text-xl ${isSubmittingScore
-                        ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                        : 'bg-purple-600 text-white hover:bg-purple-700'
+                      ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                      : 'bg-purple-600 text-white hover:bg-purple-700'
                       }`}
                   >
                     {isSubmittingScore ? 'Submitting to Monad...' : 'Submit Score to Monad'}
@@ -1363,10 +1437,10 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
                     onClick={submitToLeaderboard}
                     disabled={isSubmittingToLeaderboard || submitMessage?.type === 'success'}
                     className={`px-16 py-3 rounded-lg font-semibold transition-all duration-200 text-xl ${isSubmittingToLeaderboard
-                        ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                        : submitMessage?.type === 'success'
-                          ? 'bg-green-600 text-white cursor-not-allowed'
-                          : 'bg-blue-600 text-white hover:bg-blue-700'
+                      ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                      : submitMessage?.type === 'success'
+                        ? 'bg-green-600 text-white cursor-not-allowed'
+                        : 'bg-blue-600 text-white hover:bg-blue-700'
                       }`}
                   >
                     {isSubmittingToLeaderboard
@@ -1440,10 +1514,10 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
               <div className="absolute top-2 w-16 h-2 bg-gray-800 border border-gray-600 rounded-full overflow-hidden">
                 <div
                   className={`h-full transition-all duration-300 ${(player.health / player.maxHealth) > 0.75
-                      ? 'bg-green-500'
-                      : (player.health / player.maxHealth) > 0.25
-                        ? 'bg-yellow-400'
-                        : 'bg-red-500'
+                    ? 'bg-green-500'
+                    : (player.health / player.maxHealth) > 0.25
+                      ? 'bg-yellow-400'
+                      : 'bg-red-500'
                     }`}
                   style={{ width: `${(player.health / player.maxHealth) * 100}%` }}
                 />
@@ -1507,12 +1581,12 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
                 }}
               >
                 <div className={`w-full h-full rounded-lg border-2 flex items-center justify-center shadow-lg ${drop.type === 'shotgun'
-                    ? 'bg-orange-500 border-orange-300'
-                    : drop.type === 'laser'
-                      ? 'bg-blue-500 border-blue-300'
-                      : drop.type === 'plasma'
-                        ? 'bg-purple-500 border-purple-300'
-                        : 'bg-red-500 border-red-300'
+                  ? 'bg-orange-500 border-orange-300'
+                  : drop.type === 'laser'
+                    ? 'bg-blue-500 border-blue-300'
+                    : drop.type === 'plasma'
+                      ? 'bg-purple-500 border-purple-300'
+                      : 'bg-red-500 border-red-300'
                   }`}>
                   <span className="text-white font-bold text-xs">
                     {drop.type === 'shotgun' ? '🔫' :
@@ -1536,8 +1610,8 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
                 }}
               >
                 <div className={`w-full h-full rounded-full border-3 flex items-center justify-center shadow-lg ${drop.type === 'health'
-                    ? 'bg-green-500 border-green-300'
-                    : 'bg-cyan-500 border-cyan-300'
+                  ? 'bg-green-500 border-green-300'
+                  : 'bg-cyan-500 border-cyan-300'
                   }`}>
                   <span className="text-white font-bold text-sm">
                     {drop.type === 'health' ? '💊' : '🛡️'}
