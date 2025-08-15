@@ -983,11 +983,11 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
       // Gestion du tir automatique si la souris est maintenue enfoncée
       if (isMouseDown) {
         const currentTime = Date.now();
-        const fireRate = weaponBonus.type === 'shotgun' ? 50 : // Shotgun plus lent
-          weaponBonus.type === 'rocket' ? 200 : // Rocket très lent
-            weaponBonus.type === 'plasma' ? 150 : // Plasma lent
-              weaponBonus.type === 'laser' ? 100 : // Laser rapide
-                50; // Arme normale
+        const fireRate = weaponBonus.type === 'shotgun' ? 80 : // Shotgun plus lent
+          weaponBonus.type === 'rocket' ? 250 : // Rocket très lent
+            weaponBonus.type === 'plasma' ? 175 : // Plasma lent
+              weaponBonus.type === 'laser' ? 175 : // Laser rapide
+                80; // Arme normale
 
         if (currentTime - lastShotTime >= fireRate) {
           fireBullet();
