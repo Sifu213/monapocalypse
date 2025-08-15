@@ -59,7 +59,7 @@ export default function AuthButton({ onUserDataChange }: AuthButtonProps) {
           setMonadUsername(data.user.username);
           console.log(`✅ Username Monad trouvé: ${data.user.username} pour wallet: ${walletAddress}`);
         } else {
-          setMonadUsername(null);
+          setMonadUsername(data.user?.id !== undefined ? String(data.user.id) : null);
           console.log(`❌ Aucun username Monad trouvé pour wallet: ${walletAddress}`);
         }
       } else {
@@ -84,7 +84,7 @@ export default function AuthButton({ onUserDataChange }: AuthButtonProps) {
         fetchMonadUsername(crossAppWallet);
       } else {
         console.log('❌ Aucun wallet Cross App trouvé');
-        setMonadUsername(user.id);
+        setMonadUsername(user.id !== undefined ? String(user.id) : null);
       }
     } else {
       setMonadUsername(null);
