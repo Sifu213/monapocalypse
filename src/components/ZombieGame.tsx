@@ -110,13 +110,13 @@ const BULLET_SIZE = 6;
 const DIFFICULTY_CONFIG = {
   // Zombies normaux
   ZOMBIE_BASE_HEALTH: 250,        // Vie de base des zombies
-  ZOMBIE_HEALTH_PER_WAVE: 50,    // Vie supplémentaire par vague
+  ZOMBIE_HEALTH_PER_WAVE: 5,    // Vie supplémentaire par vague
   ZOMBIE_BASE_SPEED: 0.8,        // Vitesse de base des zombies
   ZOMBIE_SPEED_PER_WAVE: 0.05,    // Vitesse supplémentaire par vague
   ZOMBIE_DAMAGE: 1,              // Dégâts des zombies sur le joueur
 
   CHOG_BASE_HEALTH: 150,        // Vie de base des chogs
-  CHOG_HEALTH_PER_WAVE: 30,     // Vie supplémentaire par vague
+  CHOG_HEALTH_PER_WAVE: 5,     // Vie supplémentaire par vague
   CHOG_BASE_SPEED: 1,         // Vitesse de base des chogs (plus rapides)
   CHOG_SPEED_PER_WAVE: 0.05,    // Vitesse supplémentaire par vague
   CHOG_DAMAGE: 2,               // Dégâts des chogs sur le joueur
@@ -159,10 +159,10 @@ const DIFFICULTY_CONFIG = {
 };
 
 // Constantes pour les taux de drop d'armes et power-ups
-const WEAPON_DROP_RATE_ZOMBIE = 0.05; // 15% de chance pour les zombies normaux
+const WEAPON_DROP_RATE_ZOMBIE = 0.02; // 15% de chance pour les zombies normaux
 const WEAPON_DROP_RATE_BOSS = 0.5; // 50% de chance pour les boss
-const POWERUP_DROP_RATE_ZOMBIE = 0.05; // 8% de chance pour les zombies normaux
-const POWERUP_DROP_RATE_BOSS = 0.25; // 25% de chance pour les boss
+const POWERUP_DROP_RATE_ZOMBIE = 0.02; // 8% de chance pour les zombies normaux
+const POWERUP_DROP_RATE_BOSS = 0.5; // 25% de chance pour les boss
 
 const BULLET_CONFIG = {
   MAX_LIFETIME: 8000, // 8 secondes maximum pour toute balle
@@ -983,11 +983,11 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
       // Gestion du tir automatique si la souris est maintenue enfoncée
       if (isMouseDown) {
         const currentTime = Date.now();
-        const fireRate = weaponBonus.type === 'shotgun' ? 300 : // Shotgun plus lent
-          weaponBonus.type === 'rocket' ? 800 : // Rocket très lent
-            weaponBonus.type === 'plasma' ? 400 : // Plasma lent
+        const fireRate = weaponBonus.type === 'shotgun' ? 100 : // Shotgun plus lent
+          weaponBonus.type === 'rocket' ? 400 : // Rocket très lent
+            weaponBonus.type === 'plasma' ? 200 : // Plasma lent
               weaponBonus.type === 'laser' ? 150 : // Laser rapide
-                200; // Arme normale
+                100; // Arme normale
 
         if (currentTime - lastShotTime >= fireRate) {
           fireBullet();
