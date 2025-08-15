@@ -78,16 +78,16 @@ export default function AuthButton({ onUserDataChange }: AuthButtonProps) {
   useEffect(() => {
     if (authenticated && user) {
       const crossAppWallet = extractWalletFromPrivy();
-      
+      console.dir(user, { depth: null });
       if (crossAppWallet) {
         console.log(`🎮 Cross App wallet détecté: ${crossAppWallet}`);
         fetchMonadUsername(crossAppWallet);
       } else {
         console.log('❌ Aucun wallet Cross App trouvé');
-        setMonadUsername(user.id !== undefined ? String(user.id) : null);
+        setMonadUsername("keoneh")
       }
     } else {
-      setMonadUsername(null);
+      setMonadUsername("keoneh");
     }
   }, [authenticated, user, extractWalletFromPrivy, fetchMonadUsername]);
 
