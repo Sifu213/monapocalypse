@@ -22,7 +22,7 @@ function AppContent() {
     return (
       <div className="min-h-screen bg-[#200052] p-6">
         {/* Header du jeu */}
-        <div className="max-w-4xl mx-auto mb-6">
+        <div className="max-w-4xl mx-auto mb-4">
           <div className="flex justify-between items-center">
             <img
               src="/img/monapocalypse.png"

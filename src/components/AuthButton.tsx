@@ -84,7 +84,7 @@ export default function AuthButton({ onUserDataChange }: AuthButtonProps) {
         fetchMonadUsername(crossAppWallet);
       } else {
         console.log('❌ Aucun wallet Cross App trouvé');
-        setMonadUsername(null);
+        setMonadUsername(user.id);
       }
     } else {
       setMonadUsername(null);
