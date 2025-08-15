@@ -4,7 +4,6 @@ import ZombieGame from './components/ZombieGame'
 import LeaderboardDialog from './components/LeaderboardDialog'
 import { usePrivy } from '@privy-io/react-auth'
 import { useState, useCallback } from 'react'
-import { Trophy } from 'lucide-react'
 
 function AppContent() {
   const { authenticated } = usePrivy();
@@ -52,6 +51,21 @@ function AppContent() {
           <ZombieGame userData={userData} />
         </div>
 
+        <footer className="w-full px-4 bg-[#200052] sm:px-6 lg:px-8 py-1">
+                <div className="max-w-7xl mx-auto text-center">
+                    <nav className="text-gray-400 text-sm">
+                        <ul className="flex items-center justify-center gap-4">
+                            <li>
+                                Made by <a href="https://x.com/sifu_lam" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:text-purple-300">Sifu_lam</a> for
+                            </li>
+                            <li>
+                                <img src="/img/logomonad.png" alt="monad" className="h-3 w-auto" />
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+            </footer>
+
         {/* Dialog Leaderboard */}
         <LeaderboardDialog 
           isOpen={showLeaderboard} 
@@ -76,12 +90,12 @@ function AppContent() {
       </header>
 
       {/* Contenu principal */}
-      <main className="max-w-4xl mx-auto p-6">
+      <main className="max-w-4xl mx-auto p-2">
         <div className="grid lg:grid-cols-2 gap-12 items-center min-h-[80vh]">
 
           {/* Côté gauche - Description */}
-          <div className="space-y-8">
-            <div className="space-y-4">
+          <div className="space-y-4">
+            <div className="space-y-2">
               <h2 className="text-4xl font-gaming font-bold text-white leading-tight">
                 Survival. Action. Chain stress.
                 
@@ -127,6 +141,21 @@ function AppContent() {
           </div>
         </div>
       </main>
+
+      <footer className="w-full px-4 bg-[#200052] sm:px-6 lg:px-8 py-2">
+                <div className="max-w-7xl mx-auto text-center">
+                    <nav className="text-gray-400 text-sm">
+                        <ul className="flex items-center justify-center gap-4">
+                            <li>
+                                Made by <a href="https://x.com/sifu_lam" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:text-purple-300">Sifu_lam</a> for
+                            </li>
+                            <li>
+                                <img src="/img/logomonad.png" alt="monad" className="h-3 w-auto" />
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+            </footer>
 
       {/* Dialog Leaderboard */}
       <LeaderboardDialog 
