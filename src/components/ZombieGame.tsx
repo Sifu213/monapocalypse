@@ -115,10 +115,10 @@ const CONFIG = {
     ZOMBIE_DAMAGE: 1,
     CHOG_BASE_HEALTH: 150,
     CHOG_HEALTH_PER_WAVE: 5,
-    CHOG_BASE_SPEED: 1,
+    CHOG_BASE_SPEED: 1.2,
     CHOG_SPEED_PER_WAVE: 0.05,
     CHOG_DAMAGE: 2,
-    CHOG_START_WAVE: 1,
+    CHOG_START_WAVE: 3,
     BOSS_BASE_HEALTH: 2000,
     BOSS_HEALTH_PER_WAVE: 500,
     BOSS_BASE_SPEED: 0.5,
@@ -126,15 +126,15 @@ const CONFIG = {
     BOSS_DAMAGE: 3,
     BOSS_WAVE_INTERVAL: 5,
     ZOMBIES_BASE_COUNT: 5,
-    ZOMBIES_COUNT_PER_WAVE: 3,
+    ZOMBIES_COUNT_PER_WAVE: 1,
     CHOGS_BASE_COUNT: 2,
     CHOGS_COUNT_PER_WAVE: 1,
     BULLET_DAMAGE_ZOMBIE: 25,
     BULLET_DAMAGE_CHOG: 20,
     BULLET_DAMAGE_BOSS: 15,
-    LASER_DAMAGE_ZOMBIE: 45,
-    LASER_DAMAGE_CHOG: 40,
-    LASER_DAMAGE_BOSS: 30,
+    LASER_DAMAGE_ZOMBIE: 50,
+    LASER_DAMAGE_CHOG: 50,
+    LASER_DAMAGE_BOSS: 50,
     PLASMA_DAMAGE_ZOMBIE: 60,
     PLASMA_DAMAGE_CHOG: 55,
     PLASMA_DAMAGE_BOSS: 40,
@@ -160,11 +160,17 @@ const CONFIG = {
     MAX_BULLETS: 150,
   },
   FIRE_RATES: {
-    shotgun: 80,
+    shotgun: 120,
     rocket: 250,
-    plasma: 175,
+    plasma: 210,
     laser: 175,
-    normal: 80,
+    normal: 110,
+  },
+  SPAWN: {
+    DURATION: 5000,           // Durée totale d'apparition (5s)
+    MIN_DELAY: 200,           // Délai minimum entre spawns (200ms)
+    MAX_DELAY: 1200,          // Délai maximum entre spawns (1200ms)
+    OVERLAP_FACTOR: 0.8,      // Facteur pour permettre du chevauchement
   }
 } as const;
 
@@ -219,6 +225,8 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
   const [playerRotation, setPlayerRotation] = useState(0);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [submitMessage, setSubmitMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [isSpawning, setIsSpawning] = useState(false);
+  const spawnTimeoutsRef = useRef<NodeJS.Timeout[]>([]);
 
   // Hooks externes
   const {
@@ -260,14 +268,14 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
 
   // Fonctions audio optimisées
   const audioFunctions = useMemo(() => ({
-    playShoot: () => soundEnabled && createSound('/sounds/bullet.wav', 0.3)?.play().catch(() => {}),
-    playLaser: () => soundEnabled && createSound('/sounds/laser.wav', 0.4)?.play().catch(() => {}),
-    playPlasma: () => soundEnabled && createSound('/sounds/plasma.wav', 0.5)?.play().catch(() => {}),
-    playRocket: () => soundEnabled && createSound('/sounds/rocket.wav', 0.6)?.play().catch(() => {}),
-    playExplosion: () => soundEnabled && createSound('/sounds/explosion.wav', 0.7)?.play().catch(() => {}),
-    playHealth: () => soundEnabled && createSound('/sounds/health.wav', 0.5)?.play().catch(() => {}),
-    playShield: () => soundEnabled && createSound('/sounds/shield.wav', 0.6)?.play().catch(() => {}),
-    playBoss: () => soundEnabled && createSound('/sounds/boss.mp3', 0.4)?.play().catch(() => {}),
+    playShoot: () => soundEnabled && createSound('/sounds/bullet.wav', 0.3)?.play().catch(() => { }),
+    playLaser: () => soundEnabled && createSound('/sounds/laser.wav', 0.4)?.play().catch(() => { }),
+    playPlasma: () => soundEnabled && createSound('/sounds/plasma.wav', 0.5)?.play().catch(() => { }),
+    playRocket: () => soundEnabled && createSound('/sounds/rocket.wav', 0.6)?.play().catch(() => { }),
+    playExplosion: () => soundEnabled && createSound('/sounds/explosion.wav', 0.7)?.play().catch(() => { }),
+    playHealth: () => soundEnabled && createSound('/sounds/health.wav', 0.5)?.play().catch(() => { }),
+    playShield: () => soundEnabled && createSound('/sounds/shield.wav', 0.6)?.play().catch(() => { }),
+    playBoss: () => soundEnabled && createSound('/sounds/boss.mp3', 0.4)?.play().catch(() => { }),
   }), [soundEnabled]);
 
   // Gestion de la musique optimisée
@@ -280,7 +288,7 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
     },
     play: () => {
       if (soundEnabled && musicRef.current && musicRef.current.paused) {
-        musicRef.current.play().catch(() => {});
+        musicRef.current.play().catch(() => { });
       }
     },
     pause: () => musicRef.current?.pause(),
@@ -289,7 +297,7 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
         const newValue = !prev;
         if (newValue && (gameState === 'playing' || gameState === 'waveTransition')) {
           if (musicRef.current && musicRef.current.paused) {
-            musicRef.current.play().catch(() => {});
+            musicRef.current.play().catch(() => { });
           }
         } else {
           musicRef.current?.pause();
@@ -307,7 +315,7 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
       if (zombieType === 'chog') return CONFIG.DIFFICULTY.BULLET_DAMAGE_CHOG;
       return CONFIG.DIFFICULTY.BULLET_DAMAGE_ZOMBIE;
     }
-    
+
     // Pour laser, plasma, rocket
     const damageKey = `${bulletType.toUpperCase()}_DAMAGE_${zombieType.toUpperCase()}` as keyof typeof CONFIG.DIFFICULTY;
     return CONFIG.DIFFICULTY[damageKey] as number || CONFIG.DIFFICULTY.BULLET_DAMAGE_ZOMBIE;
@@ -315,7 +323,7 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
 
   // Fonction pour créer des drops optimisée
   const createDrop = useCallback((x: number, y: number, type: 'weapon' | 'powerup', isBoss = false) => {
-    const dropChance = isBoss ? 
+    const dropChance = isBoss ?
       (type === 'weapon' ? CONFIG.DROPS.WEAPON_DROP_RATE_BOSS : CONFIG.DROPS.POWERUP_DROP_RATE_BOSS) :
       (type === 'weapon' ? CONFIG.DROPS.WEAPON_DROP_RATE_ZOMBIE : CONFIG.DROPS.POWERUP_DROP_RATE_ZOMBIE);
 
@@ -350,7 +358,7 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
 
   // Fonction pour créer des explosions optimisée
   const createExplosion = useCallback((x: number, y: number, type: 'plasma' | 'rocket') => {
-    const config = type === 'plasma' ? 
+    const config = type === 'plasma' ?
       { radius: CONFIG.DIFFICULTY.PLASMA_EXPLOSION_RADIUS, setter: setPlasmaExplosions } :
       { radius: CONFIG.DIFFICULTY.ROCKET_EXPLOSION_RADIUS, setter: setRocketExplosions };
 
@@ -385,7 +393,7 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
           const zombieType = zombie.isBoss ? 'boss' : zombie.isChog ? 'chog' : 'normal';
           const damage = calculateDamage(type, zombieType);
           const newHealth = zombie.health - damage;
-          
+
           if (newHealth <= 0) {
             killZombie(zombie);
             return null;
@@ -402,7 +410,7 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
     if (gameState !== 'playing') return;
 
     const currentTime = Date.now();
-    
+
     // Vérification spéciale pour le rocket launcher (1 seconde de cooldown)
     if (weaponBonus.type === 'rocket') {
       if (currentTime - lastRocketTime < 1000) {
@@ -427,7 +435,7 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
     });
 
     let newBullets: Bullet[];
-    
+
     if (weaponBonus.type === 'shotgun') {
       const spread = Math.PI / 12;
       newBullets = [angle - spread, angle, angle + spread].map((a, i) => createBullet(a, i * 0.1));
@@ -478,7 +486,7 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
   const handleMouseDown = useCallback(() => {
     if (gameState !== 'playing') return;
     setIsMouseDown(true);
-    
+
     // Pour le rocket launcher, ne pas réinitialiser lastShotTime pour éviter le tir immédiat en boucle
     if (weaponBonus.type !== 'rocket') {
       setLastShotTime(0); // Permettre le tir immédiat pour les autres armes
@@ -489,15 +497,20 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
 
   const handleMouseUp = useCallback(() => setIsMouseDown(false), []);
 
-  // Fonction de spawn optimisée
   const spawnZombies = useCallback((waveNumber: number) => {
+    // Nettoyer les timeouts précédents
+    spawnTimeoutsRef.current.forEach(timeout => clearTimeout(timeout));
+    spawnTimeoutsRef.current = [];
+
+    setIsSpawning(true);
+
     const newZombies: Zombie[] = [];
     const isBossWave = waveNumber % CONFIG.DIFFICULTY.BOSS_WAVE_INTERVAL === 0;
 
     const createZombie = (type: 'normal' | 'chog' | 'boss', index = 0): Zombie => {
       let x, y;
       const side = Math.floor(Math.random() * 4);
-      
+
       switch (side) {
         case 0: x = Math.random() * CONFIG.GAME.WIDTH; y = -60; break;
         case 1: x = CONFIG.GAME.WIDTH + 60; y = Math.random() * CONFIG.GAME.HEIGHT; break;
@@ -506,7 +519,7 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
       }
 
       const baseId = Date.now() + index;
-      
+
       if (type === 'boss') {
         const health = CONFIG.DIFFICULTY.BOSS_BASE_HEALTH + (waveNumber * CONFIG.DIFFICULTY.BOSS_HEALTH_PER_WAVE);
         const speed = CONFIG.DIFFICULTY.BOSS_BASE_SPEED + (waveNumber * CONFIG.DIFFICULTY.BOSS_SPEED_PER_WAVE);
@@ -522,15 +535,16 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
       }
     };
 
+    // Créer tous les zombies qui vont apparaître
     if (isBossWave) {
       audioFunctions.playBoss();
       newZombies.push(createZombie('boss'));
-      
+
       // Zombies normaux
       for (let i = 0; i < Math.floor(waveNumber); i++) {
         newZombies.push(createZombie('normal', i + 1));
       }
-      
+
       // Chogs si vague >= 5
       if (waveNumber >= CONFIG.DIFFICULTY.CHOG_START_WAVE) {
         for (let i = 0; i < Math.floor(waveNumber / 3); i++) {
@@ -539,11 +553,11 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
       }
     } else {
       const zombieCount = CONFIG.DIFFICULTY.ZOMBIES_BASE_COUNT + (waveNumber * CONFIG.DIFFICULTY.ZOMBIES_COUNT_PER_WAVE);
-      
+
       for (let i = 0; i < zombieCount; i++) {
         newZombies.push(createZombie('normal', i));
       }
-      
+
       if (waveNumber >= CONFIG.DIFFICULTY.CHOG_START_WAVE) {
         const chogCount = CONFIG.DIFFICULTY.CHOGS_BASE_COUNT + ((waveNumber - CONFIG.DIFFICULTY.CHOG_START_WAVE) * CONFIG.DIFFICULTY.CHOGS_COUNT_PER_WAVE);
         for (let i = 0; i < chogCount; i++) {
@@ -552,7 +566,26 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
       }
     }
 
-    setZombies(newZombies);
+    // Programmer l'apparition de chaque zombie avec un délai aléatoire
+    newZombies.forEach((zombie, index) => {
+      // Délai aléatoire entre MIN_DELAY et une portion de DURATION
+      const maxDelayForThisZombie = CONFIG.SPAWN.DURATION * CONFIG.SPAWN.OVERLAP_FACTOR;
+      const randomDelay = Math.random() * (maxDelayForThisZombie - CONFIG.SPAWN.MIN_DELAY) + CONFIG.SPAWN.MIN_DELAY;
+
+      const timeout = setTimeout(() => {
+        setZombies(prevZombies => [...prevZombies, zombie]);
+
+        // Vérifier si c'est le dernier zombie à apparaître
+        if (index === newZombies.length - 1) {
+          setIsSpawning(false);
+        }
+      }, randomDelay);
+
+      spawnTimeoutsRef.current.push(timeout);
+    });
+
+    // Nettoyer la liste des zombies existants pour commencer fresh
+    setZombies([]);
     waveTransitionRef.current = false;
   }, [audioFunctions.playBoss]);
 
@@ -583,6 +616,10 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
 
   // Fonction de démarrage optimisée
   const startGame = useCallback(() => {
+    // Nettoyer les timeouts de spawn précédents
+    spawnTimeoutsRef.current.forEach(timeout => clearTimeout(timeout));
+    spawnTimeoutsRef.current = [];
+
     setGameState('playing');
     setPlayer({ x: CONFIG.GAME.WIDTH / 2, y: CONFIG.GAME.HEIGHT / 2, health: 100, maxHealth: 100 });
     setZombies([]);
@@ -600,6 +637,7 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
     setZombiesKilled(0);
     setTotalTransactions(0);
     setSubmitMessage(null);
+    setIsSpawning(false);
     waveTransitionRef.current = false;
     spawnZombies(1);
     bulletCounterRef.current = 0;
@@ -615,12 +653,19 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
     };
   }, [musicFunctions]);
 
+  useEffect(() => {
+    return () => {
+      // Nettoyer tous les timeouts quand le composant est démonté
+      spawnTimeoutsRef.current.forEach(timeout => clearTimeout(timeout));
+    };
+  }, []);
+
   // Gestion de la musique selon l'état
   useEffect(() => {
     if ((gameState === 'playing' || gameState === 'waveTransition') && soundEnabled) {
       // Ne jouer que si la musique est en pause
       if (musicRef.current && musicRef.current.paused) {
-        musicRef.current.play().catch(() => {});
+        musicRef.current.play().catch(() => { });
       }
     } else if (gameState === 'menu' || gameState === 'gameOver') {
       musicRef.current?.pause();
@@ -629,11 +674,11 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
 
   // Transitions de vague
   useEffect(() => {
-    if (gameState === 'playing' && zombies.length === 0 && !waveTransitionRef.current) {
+    if (gameState === 'playing' && zombies.length === 0 && !waveTransitionRef.current && !isSpawning) {
       waveTransitionRef.current = true;
       setGameState('waveTransition');
     }
-  }, [zombies.length, gameState]);
+  }, [zombies.length, gameState, isSpawning]);
 
   useEffect(() => {
     if (gameState === 'waveTransition') {
@@ -655,7 +700,7 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
 
     const gameLoop = () => {
       const currentTime = Date.now();
-      
+
       // Nettoyage périodique des balles
       if (currentTime - lastCleanupRef.current > CONFIG.BULLETS.CLEANUP_INTERVAL) {
         setBullets(cleanupBullets);
@@ -666,7 +711,7 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
       setPlayer(prev => {
         let newX = prev.x, newY = prev.y;
         const keys = keysRef.current;
-        
+
         if (keys['KeyW'] || keys['ArrowUp']) newY -= 4;
         if (keys['KeyS'] || keys['ArrowDown']) newY += 4;
         if (keys['KeyA'] || keys['ArrowLeft']) newX -= 4;
@@ -801,13 +846,13 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
               const zombieType = zombie.isBoss ? 'boss' : zombie.isChog ? 'chog' : 'normal';
               const damage = calculateDamage(bullet.type || 'normal', zombieType);
 
-              
+
 
               setZombies(prevZombies =>
                 prevZombies.map(z => {
                   if (z.id === zombie.id) {
                     const newHealth = z.health - damage;
-                    
+
                     if (newHealth <= 0) {
                       killZombie(z);
                       return null;
@@ -848,9 +893,9 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
 
         if (distance < hitRadius && !shieldBonus.active) {
           setPlayer(prev => {
-            const damage = zombie.isBoss ? CONFIG.DIFFICULTY.BOSS_DAMAGE : 
-                          zombie.isChog ? CONFIG.DIFFICULTY.CHOG_DAMAGE : 
-                          CONFIG.DIFFICULTY.ZOMBIE_DAMAGE;
+            const damage = zombie.isBoss ? CONFIG.DIFFICULTY.BOSS_DAMAGE :
+              zombie.isChog ? CONFIG.DIFFICULTY.CHOG_DAMAGE :
+                CONFIG.DIFFICULTY.ZOMBIE_DAMAGE;
             const newHealth = prev.health - damage;
             if (newHealth <= 0) setGameState('gameOver');
             return { ...prev, health: newHealth };
@@ -902,10 +947,9 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
     >
       <div className="absolute top-2 w-16 h-2 bg-gray-800 border border-gray-600 rounded-full overflow-hidden">
         <div
-          className={`h-full transition-all duration-300 ${
-            (player.health / player.maxHealth) > 0.75 ? 'bg-green-500' :
+          className={`h-full transition-all duration-300 ${(player.health / player.maxHealth) > 0.75 ? 'bg-green-500' :
             (player.health / player.maxHealth) > 0.25 ? 'bg-yellow-400' : 'bg-red-500'
-          }`}
+            }`}
           style={{ width: `${(player.health / player.maxHealth) * 100}%` }}
         />
       </div>
@@ -1021,20 +1065,18 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
         <span className="text-white font-bold">Score: {score}</span>
         <span className="text-white font-bold">Wave: {wave}</span>
         <span className="text-white font-bold">Kills: {zombiesKilled}</span>
-        
-        <div className={`flex items-center space-x-1 px-2 py-1 rounded text-xs font-bold ${
-          BLOCKCHAIN_TX_ENABLED ? 'bg-green-600 text-white' : 'bg-gray-600 text-gray-300'
-        }`}>
+
+        <div className={`flex items-center space-x-1 px-2 py-1 rounded text-xs font-bold ${BLOCKCHAIN_TX_ENABLED ? 'bg-green-600 text-white' : 'bg-gray-600 text-gray-300'
+          }`}>
           <span>{BLOCKCHAIN_TX_ENABLED ? '🔗' : '⛓'}</span>
           <span>{BLOCKCHAIN_TX_ENABLED ? 'CHAIN ON' : 'CHAIN OFF'}</span>
         </div>
 
         {weaponBonus.type && (
-          <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg ${
-            weaponBonus.type === 'shotgun' ? 'bg-orange-600' :
+          <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg ${weaponBonus.type === 'shotgun' ? 'bg-orange-600' :
             weaponBonus.type === 'laser' ? 'bg-blue-600' :
-            weaponBonus.type === 'plasma' ? 'bg-purple-600' : 'bg-red-600'
-          }`}>
+              weaponBonus.type === 'plasma' ? 'bg-purple-600' : 'bg-red-600'
+            }`}>
             <span className="text-sm">
               {weaponBonus.type === 'shotgun' ? '🔫' : weaponBonus.type === 'laser' ? '⚡' : weaponBonus.type === 'plasma' ? '💫' : '🚀'}
             </span>
@@ -1053,9 +1095,8 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
 
         <button
           onClick={musicFunctions.toggle}
-          className={`flex items-center space-x-1 px-3 py-2 rounded-lg transition-colors duration-200 ${
-            soundEnabled ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-gray-600 hover:bg-gray-700 text-gray-300'
-          }`}
+          className={`flex items-center space-x-1 px-3 py-2 rounded-lg transition-colors duration-200 ${soundEnabled ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-gray-600 hover:bg-gray-700 text-gray-300'
+            }`}
           title={soundEnabled ? 'Cut sound' : 'Active sound'}
         >
           <span className="text-sm">{soundEnabled ? '🎵' : '🔇'}</span>
@@ -1128,9 +1169,8 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
                   <button
                     onClick={submitGameScore}
                     disabled={isSubmittingScore}
-                    className={`px-16 py-3 rounded-lg font-semibold transition-all duration-200 text-xl ${
-                      isSubmittingScore ? 'bg-gray-600 text-gray-400 cursor-not-allowed' : 'bg-purple-600 text-white hover:bg-purple-700'
-                    }`}
+                    className={`px-16 py-3 rounded-lg font-semibold transition-all duration-200 text-xl ${isSubmittingScore ? 'bg-gray-600 text-gray-400 cursor-not-allowed' : 'bg-purple-600 text-white hover:bg-purple-700'
+                      }`}
                   >
                     {isSubmittingScore ? 'Submitting to Monad...' : 'Submit Score to Monad'}
                   </button>
@@ -1140,15 +1180,14 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
                   <button
                     onClick={submitToLeaderboard}
                     disabled={isSubmittingToLeaderboard || submitMessage?.type === 'success'}
-                    className={`px-16 py-3 rounded-lg font-semibold transition-all duration-200 text-xl ${
-                      isSubmittingToLeaderboard ? 'bg-gray-600 text-gray-400 cursor-not-allowed' :
+                    className={`px-16 py-3 rounded-lg font-semibold transition-all duration-200 text-xl ${isSubmittingToLeaderboard ? 'bg-gray-600 text-gray-400 cursor-not-allowed' :
                       submitMessage?.type === 'success' ? 'bg-green-600 text-white cursor-not-allowed' :
-                      'bg-blue-600 text-white hover:bg-blue-700'
-                    }`}
+                        'bg-blue-600 text-white hover:bg-blue-700'
+                      }`}
                   >
                     {isSubmittingToLeaderboard ? 'Submitting to Leaderboard...' :
-                     submitMessage?.type === 'success' ? '✓ Submitted to Leaderboard' :
-                     'Submit to Leaderboard'}
+                      submitMessage?.type === 'success' ? '✓ Submitted to Leaderboard' :
+                        'Submit to Leaderboard'}
                   </button>
                 )}
 
@@ -1174,7 +1213,7 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
               .filter(zombie => {
                 const margin = zombie.isBoss ? 50 : 25;
                 return zombie.x >= margin && zombie.x <= CONFIG.GAME.WIDTH - margin &&
-                       zombie.y >= margin && zombie.y <= CONFIG.GAME.HEIGHT - margin;
+                  zombie.y >= margin && zombie.y <= CONFIG.GAME.HEIGHT - margin;
               })
               .map(zombie => {
                 const size = zombie.isBoss ? 100 : 50;
@@ -1200,9 +1239,8 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
                     />
                     <div className={`absolute -top-1 left-1/2 transform -translate-x-1/2 h-1 bg-gray-600 rounded-full ${zombie.isBoss ? 'w-20' : 'w-12'}`}>
                       <div
-                        className={`h-full rounded-full transition-all duration-200 ${
-                          zombie.isBoss ? 'bg-purple-500' : zombie.isChog ? 'bg-orange-500' : 'bg-red-500'
-                        }`}
+                        className={`h-full rounded-full transition-all duration-200 ${zombie.isBoss ? 'bg-purple-500' : zombie.isChog ? 'bg-orange-500' : 'bg-red-500'
+                          }`}
                         style={{ width: `${(zombie.health / zombie.maxHealth) * 100}%` }}
                       />
                     </div>
@@ -1217,11 +1255,10 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
                 className="absolute animate-bounce"
                 style={{ left: drop.x - 15, top: drop.y - 15, width: 30, height: 30 }}
               >
-                <div className={`w-full h-full rounded-lg border-2 flex items-center justify-center shadow-lg ${
-                  drop.type === 'shotgun' ? 'bg-orange-500 border-orange-300' :
+                <div className={`w-full h-full rounded-lg border-2 flex items-center justify-center shadow-lg ${drop.type === 'shotgun' ? 'bg-orange-500 border-orange-300' :
                   drop.type === 'laser' ? 'bg-blue-500 border-blue-300' :
-                  drop.type === 'plasma' ? 'bg-purple-500 border-purple-300' : 'bg-red-500 border-red-300'
-                }`}>
+                    drop.type === 'plasma' ? 'bg-purple-500 border-purple-300' : 'bg-red-500 border-red-300'
+                  }`}>
                   <span className="text-white font-bold text-xs">
                     {drop.type === 'shotgun' ? '🔫' : drop.type === 'laser' ? '⚡' : drop.type === 'plasma' ? '💫' : '🚀'}
                   </span>
@@ -1236,9 +1273,8 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
                 className="absolute animate-bounce"
                 style={{ left: drop.x - 15, top: drop.y - 15, width: 30, height: 30 }}
               >
-                <div className={`w-full h-full rounded-full border-3 flex items-center justify-center shadow-lg ${
-                  drop.type === 'health' ? 'bg-green-500 border-green-300' : 'bg-cyan-500 border-cyan-300'
-                }`}>
+                <div className={`w-full h-full rounded-full border-3 flex items-center justify-center shadow-lg ${drop.type === 'health' ? 'bg-green-500 border-green-300' : 'bg-cyan-500 border-cyan-300'
+                  }`}>
                   <span className="text-white font-bold text-sm">
                     {drop.type === 'health' ? '💊' : '🛡️'}
                   </span>
