@@ -141,14 +141,14 @@ const CONFIG = {
     PLASMA_EXPLOSION_RADIUS: 80,
     ROCKET_DAMAGE_ZOMBIE: 120,
     ROCKET_DAMAGE_CHOG: 120,
-    ROCKET_DAMAGE_BOSS: 100,
+    ROCKET_DAMAGE_BOSS: 120,
     ROCKET_EXPLOSION_RADIUS: 120,
     ROCKET_SELF_DAMAGE: 20,
     ROCKET_SAFE_DISTANCE: 60,
     SHIELD_DURATION: 30000,
   },
   DROPS: {
-    WEAPON_DROP_RATE_ZOMBIE: 0.02,
+    WEAPON_DROP_RATE_ZOMBIE: 0.04,
     WEAPON_DROP_RATE_BOSS: 0.5,
     POWERUP_DROP_RATE_ZOMBIE: 0.02,
     POWERUP_DROP_RATE_BOSS: 0.5,
@@ -160,14 +160,14 @@ const CONFIG = {
     MAX_BULLETS: 150,
   },
   FIRE_RATES: {
-    shotgun: 120,
+    shotgun: 100,
     rocket: 250,
     plasma: 210,
     laser: 175,
-    normal: 110,
+    normal: 100,
   },
   SPAWN: {
-    DURATION: 5000,           // Durée totale d'apparition (5s)
+    DURATION: 8000,           // Durée totale d'apparition (5s)
     MIN_DELAY: 200,           // Délai minimum entre spawns (200ms)
     MAX_DELAY: 1200,          // Délai maximum entre spawns (1200ms)
     OVERLAP_FACTOR: 0.8,      // Facteur pour permettre du chevauchement
@@ -346,11 +346,6 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
     const points = zombie.isBoss ? 100 : zombie.isChog ? 15 : 10;
     setScore(prev => prev + points);
     setZombiesKilled(prev => prev + 1);
-    setTotalTransactions(prev => prev + 1);
-
-    if (BLOCKCHAIN_TX_ENABLED && authenticated && playerAddress) {
-      click();
-    }
 
     createDrop(zombie.x, zombie.y, 'weapon', zombie.isBoss);
     createDrop(zombie.x, zombie.y, 'powerup', zombie.isBoss);
@@ -589,9 +584,8 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
     waveTransitionRef.current = false;
   }, [audioFunctions.playBoss]);
 
-  // Soumission des scores optimisée
   const submitToLeaderboard = useCallback(async () => {
-    if (!userData.monadUsername || !userData.crossAppWallet || !authenticated || isSubmittingToLeaderboard) return;
+    if (!userData.monadUsername || !userData.crossAppWallet || !authenticated || isSubmittingToLeaderboard || submitMessage?.type === 'success') return;
 
     try {
       setSubmitMessage(null);
@@ -607,7 +601,14 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
       console.error('Erreur lors de la soumission du score:', error);
       setSubmitMessage({ type: 'error', text: 'Erreur lors de la soumission du score.' });
     }
-  }, [userData, authenticated, score, wave, zombiesKilled, submitScore, isSubmittingToLeaderboard]);
+  }, [userData, authenticated, score, wave, zombiesKilled, submitScore, isSubmittingToLeaderboard, submitMessage?.type]);
+
+  // Soumission automatique au leaderboard en cas de game over
+  useEffect(() => {
+    if (gameState === 'gameOver' && userData.monadUsername && userData.crossAppWallet && authenticated) {
+      submitToLeaderboard();
+    }
+  }, [gameState, userData.monadUsername, userData.crossAppWallet, authenticated, submitToLeaderboard]);
 
   const submitGameScore = useCallback(async () => {
     if (!playerAddress || !authenticated || isSubmittingScore) return;
@@ -689,10 +690,16 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
         setGameState('playing');
         spawnZombies(nextWave);
         waveTransitionRef.current = false;
+
+        if (BLOCKCHAIN_TX_ENABLED && authenticated && playerAddress) {
+          click();
+          setTotalTransactions(prev => prev + 1);
+        }
+
       }, 2000);
       return () => clearTimeout(timeout);
     }
-  }, [gameState, wave, spawnZombies]);
+  }, [gameState, wave, spawnZombies, authenticated, playerAddress, click]);
 
   // Boucle de jeu principale optimisée
   useEffect(() => {
@@ -1060,11 +1067,12 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
 
   return (
     <div className="flex flex-col items-center space-y-4">
-      {/* HUD optimisé */}
+      
       <div className="flex items-center space-x-6 p-2">
         <span className="text-white font-bold">Score: {score}</span>
         <span className="text-white font-bold">Wave: {wave}</span>
         <span className="text-white font-bold">Kills: {zombiesKilled}</span>
+        <span className="text-white font-bold">Waves TX: {totalTransactions}</span>
 
         <div className={`flex items-center space-x-1 px-2 py-1 rounded text-xs font-bold ${BLOCKCHAIN_TX_ENABLED ? 'bg-green-600 text-white' : 'bg-gray-600 text-gray-300'
           }`}>
@@ -1158,11 +1166,7 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
               <p className="text-white">Transactions: {totalTransactions}</p>
               <p className="text-white">Waves finished: {wave - 1}</p>
 
-              {submitMessage && (
-                <div className={`p-3 rounded-lg ${submitMessage.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
-                  {submitMessage.text}
-                </div>
-              )}
+              
 
               <div className="flex flex-col space-y-3">
                 {BLOCKCHAIN_TX_ENABLED && authenticated && playerAddress && (
@@ -1173,21 +1177,6 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
                       }`}
                   >
                     {isSubmittingScore ? 'Submitting to Monad...' : 'Submit Score to Monad'}
-                  </button>
-                )}
-
-                {authenticated && userData.monadUsername && userData.crossAppWallet && (
-                  <button
-                    onClick={submitToLeaderboard}
-                    disabled={isSubmittingToLeaderboard || submitMessage?.type === 'success'}
-                    className={`px-16 py-3 rounded-lg font-semibold transition-all duration-200 text-xl ${isSubmittingToLeaderboard ? 'bg-gray-600 text-gray-400 cursor-not-allowed' :
-                      submitMessage?.type === 'success' ? 'bg-green-600 text-white cursor-not-allowed' :
-                        'bg-blue-600 text-white hover:bg-blue-700'
-                      }`}
-                  >
-                    {isSubmittingToLeaderboard ? 'Submitting to Leaderboard...' :
-                      submitMessage?.type === 'success' ? '✓ Submitted to Leaderboard' :
-                        'Submit to Leaderboard'}
                   </button>
                 )}
 
