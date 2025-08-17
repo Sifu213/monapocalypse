@@ -243,6 +243,8 @@ const createSound = (src: string, volume = 0.5) => {
   }
 };
 
+
+
 export default function ZombieGame({ userData }: ZombieGameProps) {
   // Refs optimisées
   const gameRef = useRef<HTMLDivElement>(null);
@@ -294,6 +296,12 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
   } = useRelayer();
 
   const { submitScore, isLoading: isSubmittingToLeaderboard } = useLeaderboard();
+
+  const shareOnTwitter = () => {
+    const tweetText = `I survived ${wave} waves on Monapocalypse with a ${score} score !!\n\nTry to break my score:\n https://monapocalypse.vercel.app/`;
+    const twitterIntentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;
+    window.open(twitterIntentUrl, '_blank');
+  };
 
   // Fonctions de validation optimisées avec useMemo
   const bulletValidators = useMemo(() => ({
@@ -575,12 +583,12 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
         // Sélectionner un type de boss aléatoire
         const bossType = getRandomBossType();
         const bossConfig = CONFIG.BOSS_TYPES[bossType];
-        
+
         console.log(`🎲 Boss spawned: ${bossConfig.name} (${bossType})`);
-        
+
         const baseHealth = CONFIG.DIFFICULTY.BOSS_BASE_HEALTH + (waveNumber * CONFIG.DIFFICULTY.BOSS_HEALTH_PER_WAVE);
         const health = Math.floor(baseHealth * bossConfig.healthMultiplier);
-        
+
         const baseSpeed = calculateLimitedSpeed(
           CONFIG.DIFFICULTY.BOSS_BASE_SPEED,
           CONFIG.DIFFICULTY.BOSS_SPEED_PER_WAVE,
@@ -588,20 +596,20 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
           CONFIG.DIFFICULTY.BOSS_MAX_SPEED
         );
         const speed = baseSpeed * bossConfig.speedMultiplier;
-        
+
         console.log(`Boss stats - Health: ${health}, Speed: ${speed.toFixed(2)}, Type: ${bossType}`);
-        
-        return { 
-          id: baseId, 
-          x: CONFIG.GAME.WIDTH / 2, 
-          y: CONFIG.GAME.HEIGHT + 100, 
-          health, 
-          maxHealth: health, 
-          speed, 
-          isBoss: true, 
+
+        return {
+          id: baseId,
+          x: CONFIG.GAME.WIDTH / 2,
+          y: CONFIG.GAME.HEIGHT + 100,
+          health,
+          maxHealth: health,
+          speed,
+          isBoss: true,
           bossType,
-          rotation: 0, 
-          scaleX: 1 
+          rotation: 0,
+          scaleX: 1
         };
       } else if (type === 'chog') {
         const health = CONFIG.DIFFICULTY.CHOG_BASE_HEALTH + (waveNumber * CONFIG.DIFFICULTY.CHOG_HEALTH_PER_WAVE);
@@ -993,14 +1001,14 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
         if (distance < hitRadius && !shieldBonus.active) {
           setPlayer(prev => {
             let damage: number = CONFIG.DIFFICULTY.ZOMBIE_DAMAGE;
-            
+
             if (zombie.isBoss && zombie.bossType) {
               const bossConfig = CONFIG.BOSS_TYPES[zombie.bossType];
               damage = Math.floor(CONFIG.DIFFICULTY.BOSS_DAMAGE * bossConfig.damageMultiplier);
             } else if (zombie.isChog) {
               damage = CONFIG.DIFFICULTY.CHOG_DAMAGE;
             }
-            
+
             const newHealth = prev.health - damage;
             if (newHealth <= 0) setGameState('gameOver');
             return { ...prev, health: newHealth };
@@ -1165,7 +1173,7 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
 
   return (
     <div className="flex flex-col items-center space-y-4">
-      
+
       <div className="flex items-center space-x-6 p-2">
         <span className="text-white font-bold">Score: {score}</span>
         <span className="text-white font-bold">Wave: {wave}</span>
@@ -1268,7 +1276,7 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
               <p className="text-white">Transactions: {totalTransactions}</p>
               <p className="text-white">Waves finished: {wave - 1}</p>
 
-              
+
 
               <div className="flex flex-col space-y-3">
                 {BLOCKCHAIN_TX_ENABLED && authenticated && playerAddress && (
@@ -1281,13 +1289,20 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
                     {isSubmittingScore ? 'Submitting to Monad...' : 'Submit Score to Monad'}
                   </button>
                 )}
+                <button
+                  onClick={shareOnTwitter}
+                  className="px-16 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold transition-all duration-200 text-xl"
+                >
+                  Flex score On Twitter
+                </button>
 
                 <button
                   onClick={startGame}
                   className="px-16 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold transition-all duration-200 text-xl"
                 >
-                  REPLAY
+                  Replay
                 </button>
+
               </div>
             </div>
           </div>
@@ -1309,10 +1324,10 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
               .map(zombie => {
                 const size = zombie.isBoss ? 100 : 50;
                 const halfSize = size / 2;
-                
+
                 // Obtenir les informations du boss si c'est un boss
                 const bossConfig = zombie.isBoss && zombie.bossType ? CONFIG.BOSS_TYPES[zombie.bossType] : null;
-                
+
                 // Pour l'instant, utiliser l'image originale pour tous les boss
                 // Vous pourrez changer ces chemins quand vous aurez les nouvelles images
                 let imageSrc;
@@ -1333,10 +1348,10 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
                 } else {
                   imageSrc = zombie.isChog ? "/img/chog.gif" : "/img/molandakz.gif";
                 }
-                
+
                 const healthBarColor = zombie.isBoss && bossConfig ? bossConfig.color :
-                                     zombie.isChog ? 'bg-orange-500' : 'bg-red-500';
-                
+                  zombie.isChog ? 'bg-orange-500' : 'bg-red-500';
+
                 return (
                   <div
                     key={zombie.id}
@@ -1362,8 +1377,8 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
                         style={{ width: `${(zombie.health / zombie.maxHealth) * 100}%` }}
                       />
                     </div>
-                    
-                    
+
+
                   </div>
                 );
               })}

@@ -108,7 +108,7 @@ function AppContent() {
             {/* Image d'illustration */}
             <div className="flex justify-center">
               <img
-                src="/img/cover.png"
+                src="/img/monapocalyspecov.png"
                 alt="Monapocalypse illustration"
                 className="max-w-full h-auto rounded-lg shadow-lg"
                 draggable={false}
