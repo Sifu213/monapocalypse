@@ -106,23 +106,27 @@ const CONFIG = {
     ZOMBIE_SIZE: 25,
     BOSS_SIZE: 50,
     BULLET_SIZE: 6,
+    PLAYER_SPEED: 4, // Vitesse du joueur en pixels par frame
   },
   DIFFICULTY: {
     ZOMBIE_BASE_HEALTH: 250,
     ZOMBIE_HEALTH_PER_WAVE: 5,
     ZOMBIE_BASE_SPEED: 0.8,
     ZOMBIE_SPEED_PER_WAVE: 0.05,
+    ZOMBIE_MAX_SPEED: 3.5, // Vitesse maximale pour les zombies (87.5% de la vitesse joueur)
     ZOMBIE_DAMAGE: 1,
     CHOG_BASE_HEALTH: 150,
     CHOG_HEALTH_PER_WAVE: 5,
     CHOG_BASE_SPEED: 1.2,
     CHOG_SPEED_PER_WAVE: 0.05,
+    CHOG_MAX_SPEED: 3.8, // Vitesse maximale pour les chogs (95% de la vitesse joueur)
     CHOG_DAMAGE: 2,
     CHOG_START_WAVE: 3,
     BOSS_BASE_HEALTH: 2000,
     BOSS_HEALTH_PER_WAVE: 500,
     BOSS_BASE_SPEED: 0.5,
     BOSS_SPEED_PER_WAVE: 0.1,
+    BOSS_MAX_SPEED: 3.2, // Vitesse maximale pour les boss (80% de la vitesse joueur)
     BOSS_DAMAGE: 3,
     BOSS_WAVE_INTERVAL: 5,
     ZOMBIES_BASE_COUNT: 5,
@@ -175,6 +179,12 @@ const CONFIG = {
 } as const;
 
 const BLOCKCHAIN_TX_ENABLED = import.meta.env.VITE_ENABLE_BLOCKCHAIN_TX === '1';
+
+// Fonction utilitaire pour calculer la vitesse limitée des ennemis
+const calculateLimitedSpeed = (baseSpeed: number, speedPerWave: number, waveNumber: number, maxSpeed: number): number => {
+  const calculatedSpeed = baseSpeed + (waveNumber * speedPerWave);
+  return Math.min(calculatedSpeed, maxSpeed);
+};
 
 // Fonction utilitaire pour créer des sons
 const createSound = (src: string, volume = 0.5) => {
@@ -517,15 +527,30 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
 
       if (type === 'boss') {
         const health = CONFIG.DIFFICULTY.BOSS_BASE_HEALTH + (waveNumber * CONFIG.DIFFICULTY.BOSS_HEALTH_PER_WAVE);
-        const speed = CONFIG.DIFFICULTY.BOSS_BASE_SPEED + (waveNumber * CONFIG.DIFFICULTY.BOSS_SPEED_PER_WAVE);
+        const speed = calculateLimitedSpeed(
+          CONFIG.DIFFICULTY.BOSS_BASE_SPEED,
+          CONFIG.DIFFICULTY.BOSS_SPEED_PER_WAVE,
+          waveNumber,
+          CONFIG.DIFFICULTY.BOSS_MAX_SPEED
+        );
         return { id: baseId, x: CONFIG.GAME.WIDTH / 2, y: CONFIG.GAME.HEIGHT + 100, health, maxHealth: health, speed, isBoss: true, rotation: 0, scaleX: 1 };
       } else if (type === 'chog') {
         const health = CONFIG.DIFFICULTY.CHOG_BASE_HEALTH + (waveNumber * CONFIG.DIFFICULTY.CHOG_HEALTH_PER_WAVE);
-        const speed = CONFIG.DIFFICULTY.CHOG_BASE_SPEED + (waveNumber * CONFIG.DIFFICULTY.CHOG_SPEED_PER_WAVE);
+        const speed = calculateLimitedSpeed(
+          CONFIG.DIFFICULTY.CHOG_BASE_SPEED,
+          CONFIG.DIFFICULTY.CHOG_SPEED_PER_WAVE,
+          waveNumber,
+          CONFIG.DIFFICULTY.CHOG_MAX_SPEED
+        );
         return { id: baseId + 1000, x, y, health, maxHealth: health, speed, isChog: true, rotation: 0, scaleX: 1 };
       } else {
         const health = CONFIG.DIFFICULTY.ZOMBIE_BASE_HEALTH + (waveNumber * CONFIG.DIFFICULTY.ZOMBIE_HEALTH_PER_WAVE);
-        const speed = CONFIG.DIFFICULTY.ZOMBIE_BASE_SPEED + (waveNumber * CONFIG.DIFFICULTY.ZOMBIE_SPEED_PER_WAVE);
+        const speed = calculateLimitedSpeed(
+          CONFIG.DIFFICULTY.ZOMBIE_BASE_SPEED,
+          CONFIG.DIFFICULTY.ZOMBIE_SPEED_PER_WAVE,
+          waveNumber,
+          CONFIG.DIFFICULTY.ZOMBIE_MAX_SPEED
+        );
         return { id: baseId, x, y, health, maxHealth: health, speed, rotation: 0, scaleX: 1 };
       }
     };
@@ -719,10 +744,10 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
         let newX = prev.x, newY = prev.y;
         const keys = keysRef.current;
 
-        if (keys['KeyW'] || keys['ArrowUp']) newY -= 4;
-        if (keys['KeyS'] || keys['ArrowDown']) newY += 4;
-        if (keys['KeyA'] || keys['ArrowLeft']) newX -= 4;
-        if (keys['KeyD'] || keys['ArrowRight']) newX += 4;
+        if (keys['KeyW'] || keys['ArrowUp']) newY -= CONFIG.GAME.PLAYER_SPEED;
+        if (keys['KeyS'] || keys['ArrowDown']) newY += CONFIG.GAME.PLAYER_SPEED;
+        if (keys['KeyA'] || keys['ArrowLeft']) newX -= CONFIG.GAME.PLAYER_SPEED;
+        if (keys['KeyD'] || keys['ArrowRight']) newX += CONFIG.GAME.PLAYER_SPEED;
 
         return {
           ...prev,
@@ -852,8 +877,6 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
 
               const zombieType = zombie.isBoss ? 'boss' : zombie.isChog ? 'chog' : 'normal';
               const damage = calculateDamage(bullet.type || 'normal', zombieType);
-
-
 
               setZombies(prevZombies =>
                 prevZombies.map(z => {
@@ -1076,7 +1099,6 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
 
         <div className={`flex items-center space-x-1 px-2 py-1 rounded text-xs font-bold ${BLOCKCHAIN_TX_ENABLED ? 'bg-green-600 text-white' : 'bg-gray-600 text-gray-300'
           }`}>
-          <span>{BLOCKCHAIN_TX_ENABLED ? '🔗' : '⛓'}</span>
           <span>{BLOCKCHAIN_TX_ENABLED ? 'CHAIN ON' : 'CHAIN OFF'}</span>
         </div>
 
@@ -1165,8 +1187,6 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
               <p className="text-white">Kills: {zombiesKilled}</p>
               <p className="text-white">Transactions: {totalTransactions}</p>
               <p className="text-white">Waves finished: {wave - 1}</p>
-
-              
 
               <div className="flex flex-col space-y-3">
                 {BLOCKCHAIN_TX_ENABLED && authenticated && playerAddress && (
