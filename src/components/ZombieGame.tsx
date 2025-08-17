@@ -39,6 +39,7 @@ interface Zombie {
   speed: number;
   isBoss?: boolean;
   isChog?: boolean;
+  bossType?: BossType;
   rotation?: number;
   scaleX?: number;
 }
@@ -92,6 +93,7 @@ type BulletType = 'normal' | 'shotgun' | 'laser' | 'plasma' | 'rocket';
 type WeaponType = 'shotgun' | 'laser' | 'plasma' | 'rocket';
 type PowerUpType = 'health' | 'shield';
 type GameState = 'menu' | 'playing' | 'gameOver' | 'waveTransition';
+type BossType = 'destroyer' | 'titan' | 'nightmare' | 'overlord';
 
 interface ZombieGameProps {
   userData: { monadUsername: string | null; crossAppWallet: string | null };
@@ -151,6 +153,44 @@ const CONFIG = {
     ROCKET_SAFE_DISTANCE: 60,
     SHIELD_DURATION: 30000,
   },
+  BOSS_TYPES: {
+    destroyer: {
+      name: 'Destroyer',
+      image: '/img/boss1.gif',
+      healthMultiplier: 1.0,
+      speedMultiplier: 1.0,
+      damageMultiplier: 1.0,
+      color: 'bg-purple-500',
+      emoji: ''
+    },
+    titan: {
+      name: 'Titan',
+      image: '/img/boss2.gif',
+      healthMultiplier: 1.3,
+      speedMultiplier: 1.0,
+      damageMultiplier: 1.5,
+      color: 'bg-red-500',
+      emoji: ''
+    },
+    nightmare: {
+      name: 'Nightmare',
+      image: '/img/boss3.gif',
+      healthMultiplier: 0.8,
+      speedMultiplier: 1.5,
+      damageMultiplier: 1.2,
+      color: 'bg-green-500',
+      emoji: ''
+    },
+    overlord: {
+      name: 'Overlord',
+      image: '/img/boss4.gif',
+      healthMultiplier: 2,
+      speedMultiplier: 1.0,
+      damageMultiplier: 2.0,
+      color: 'bg-yellow-500',
+      emoji: ''
+    }
+  },
   DROPS: {
     WEAPON_DROP_RATE_ZOMBIE: 0.04,
     WEAPON_DROP_RATE_BOSS: 0.5,
@@ -179,6 +219,12 @@ const CONFIG = {
 } as const;
 
 const BLOCKCHAIN_TX_ENABLED = import.meta.env.VITE_ENABLE_BLOCKCHAIN_TX === '1';
+
+// Fonction utilitaire pour sélectionner un boss aléatoire
+const getRandomBossType = (): BossType => {
+  const bossTypes: BossType[] = ['destroyer', 'titan', 'nightmare', 'overlord'];
+  return bossTypes[Math.floor(Math.random() * bossTypes.length)];
+};
 
 // Fonction utilitaire pour calculer la vitesse limitée des ennemis
 const calculateLimitedSpeed = (baseSpeed: number, speedPerWave: number, waveNumber: number, maxSpeed: number): number => {
@@ -526,14 +572,37 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
       const baseId = Date.now() + index;
 
       if (type === 'boss') {
-        const health = CONFIG.DIFFICULTY.BOSS_BASE_HEALTH + (waveNumber * CONFIG.DIFFICULTY.BOSS_HEALTH_PER_WAVE);
-        const speed = calculateLimitedSpeed(
+        // Sélectionner un type de boss aléatoire
+        const bossType = getRandomBossType();
+        const bossConfig = CONFIG.BOSS_TYPES[bossType];
+        
+        console.log(`🎲 Boss spawned: ${bossConfig.name} (${bossType})`);
+        
+        const baseHealth = CONFIG.DIFFICULTY.BOSS_BASE_HEALTH + (waveNumber * CONFIG.DIFFICULTY.BOSS_HEALTH_PER_WAVE);
+        const health = Math.floor(baseHealth * bossConfig.healthMultiplier);
+        
+        const baseSpeed = calculateLimitedSpeed(
           CONFIG.DIFFICULTY.BOSS_BASE_SPEED,
           CONFIG.DIFFICULTY.BOSS_SPEED_PER_WAVE,
           waveNumber,
           CONFIG.DIFFICULTY.BOSS_MAX_SPEED
         );
-        return { id: baseId, x: CONFIG.GAME.WIDTH / 2, y: CONFIG.GAME.HEIGHT + 100, health, maxHealth: health, speed, isBoss: true, rotation: 0, scaleX: 1 };
+        const speed = baseSpeed * bossConfig.speedMultiplier;
+        
+        console.log(`Boss stats - Health: ${health}, Speed: ${speed.toFixed(2)}, Type: ${bossType}`);
+        
+        return { 
+          id: baseId, 
+          x: CONFIG.GAME.WIDTH / 2, 
+          y: CONFIG.GAME.HEIGHT + 100, 
+          health, 
+          maxHealth: health, 
+          speed, 
+          isBoss: true, 
+          bossType,
+          rotation: 0, 
+          scaleX: 1 
+        };
       } else if (type === 'chog') {
         const health = CONFIG.DIFFICULTY.CHOG_BASE_HEALTH + (waveNumber * CONFIG.DIFFICULTY.CHOG_HEALTH_PER_WAVE);
         const speed = calculateLimitedSpeed(
@@ -923,9 +992,15 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
 
         if (distance < hitRadius && !shieldBonus.active) {
           setPlayer(prev => {
-            const damage = zombie.isBoss ? CONFIG.DIFFICULTY.BOSS_DAMAGE :
-              zombie.isChog ? CONFIG.DIFFICULTY.CHOG_DAMAGE :
-                CONFIG.DIFFICULTY.ZOMBIE_DAMAGE;
+            let damage: number = CONFIG.DIFFICULTY.ZOMBIE_DAMAGE;
+            
+            if (zombie.isBoss && zombie.bossType) {
+              const bossConfig = CONFIG.BOSS_TYPES[zombie.bossType];
+              damage = Math.floor(CONFIG.DIFFICULTY.BOSS_DAMAGE * bossConfig.damageMultiplier);
+            } else if (zombie.isChog) {
+              damage = CONFIG.DIFFICULTY.CHOG_DAMAGE;
+            }
+            
             const newHealth = prev.health - damage;
             if (newHealth <= 0) setGameState('gameOver');
             return { ...prev, health: newHealth };
@@ -1174,6 +1249,11 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
                   ? `⚠️ BOSS INCOMING - Wave ${wave + 1} ⚠️`
                   : `Wave incoming ${wave + 1}...`}
               </p>
+              {(wave + 1) % CONFIG.DIFFICULTY.BOSS_WAVE_INTERVAL === 0 && (
+                <p className="text-yellow-300 text-lg animate-pulse">
+                  Random Boss Challenge!
+                </p>
+              )}
               <div className="animate-spin w-8 h-8 border-4 border-green-400 border-t-transparent rounded-full mx-auto"></div>
             </div>
           </div>
@@ -1187,6 +1267,8 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
               <p className="text-white">Kills: {zombiesKilled}</p>
               <p className="text-white">Transactions: {totalTransactions}</p>
               <p className="text-white">Waves finished: {wave - 1}</p>
+
+              
 
               <div className="flex flex-col space-y-3">
                 {BLOCKCHAIN_TX_ENABLED && authenticated && playerAddress && (
@@ -1227,6 +1309,34 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
               .map(zombie => {
                 const size = zombie.isBoss ? 100 : 50;
                 const halfSize = size / 2;
+                
+                // Obtenir les informations du boss si c'est un boss
+                const bossConfig = zombie.isBoss && zombie.bossType ? CONFIG.BOSS_TYPES[zombie.bossType] : null;
+                
+                // Pour l'instant, utiliser l'image originale pour tous les boss
+                // Vous pourrez changer ces chemins quand vous aurez les nouvelles images
+                let imageSrc;
+                if (zombie.isBoss) {
+                  switch (zombie.bossType) {
+                    case 'titan':
+                      imageSrc = "/img/boss3.gif"; // Changez vers "/img/boss2.gif" quand disponible
+                      break;
+                    case 'nightmare':
+                      imageSrc = "/img/boss3.gif"; // Changez vers "/img/boss3.gif" quand disponible
+                      break;
+                    case 'overlord':
+                      imageSrc = "/img/boss3.gif"; // Changez vers "/img/boss4.gif" quand disponible
+                      break;
+                    default: // destroyer
+                      imageSrc = "/img/boss.gif";
+                  }
+                } else {
+                  imageSrc = zombie.isChog ? "/img/chog.gif" : "/img/molandakz.gif";
+                }
+                
+                const healthBarColor = zombie.isBoss && bossConfig ? bossConfig.color :
+                                     zombie.isChog ? 'bg-orange-500' : 'bg-red-500';
+                
                 return (
                   <div
                     key={zombie.id}
@@ -1241,18 +1351,19 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
                     }}
                   >
                     <img
-                      src={zombie.isBoss ? "/img/boss.gif" : zombie.isChog ? "/img/chog.gif" : "/img/molandakz.gif"}
-                      alt={zombie.isBoss ? "boss" : zombie.isChog ? "chog" : "zombie"}
+                      src={imageSrc}
+                      alt={zombie.isBoss ? `boss-${zombie.bossType}` : zombie.isChog ? "chog" : "zombie"}
                       className="w-full h-full object-cover rounded-full select-none pointer-events-none"
                       draggable={false}
                     />
                     <div className={`absolute -top-1 left-1/2 transform -translate-x-1/2 h-1 bg-gray-600 rounded-full ${zombie.isBoss ? 'w-20' : 'w-12'}`}>
                       <div
-                        className={`h-full rounded-full transition-all duration-200 ${zombie.isBoss ? 'bg-purple-500' : zombie.isChog ? 'bg-orange-500' : 'bg-red-500'
-                          }`}
+                        className={`h-full rounded-full transition-all duration-200 ${healthBarColor}`}
                         style={{ width: `${(zombie.health / zombie.maxHealth) * 100}%` }}
                       />
                     </div>
+                    
+                    
                   </div>
                 );
               })}
