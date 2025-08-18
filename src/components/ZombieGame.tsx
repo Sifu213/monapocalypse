@@ -290,7 +290,6 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
   const {
     click,
     submitScoreMonad,
-    isLoading: isSubmittingScore,
     userAddress: playerAddress,
     isUserConnected: authenticated
   } = useRelayer();
