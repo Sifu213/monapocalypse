@@ -709,6 +709,7 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
   useEffect(() => {
     if (gameState === 'gameOver' && userData.monadUsername && userData.crossAppWallet && authenticated) {
       submitToLeaderboard();
+      submitGameScore();
     }
   }, [gameState, userData.monadUsername, userData.crossAppWallet, authenticated, submitToLeaderboard]);
 
@@ -1279,16 +1280,7 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
 
 
               <div className="flex flex-col space-y-3">
-                {BLOCKCHAIN_TX_ENABLED && authenticated && playerAddress && (
-                  <button
-                    onClick={submitGameScore}
-                    disabled={isSubmittingScore}
-                    className={`px-16 py-3 rounded-lg font-semibold transition-all duration-200 text-xl ${isSubmittingScore ? 'bg-gray-600 text-gray-400 cursor-not-allowed' : 'bg-purple-600 text-white hover:bg-purple-700'
-                      }`}
-                  >
-                    {isSubmittingScore ? 'Submitting to Monad...' : 'Submit Score to Monad'}
-                  </button>
-                )}
+                
                 <button
                   onClick={shareOnTwitter}
                   className="px-16 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold transition-all duration-200 text-xl"

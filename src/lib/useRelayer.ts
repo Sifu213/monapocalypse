@@ -18,7 +18,7 @@ type useRelayerReturn = {
   isLoading: boolean;
   error: string | null;
   txHashes: string[];
-  userAddress: string | undefined;
+  userAddress: string | null;
   isUserConnected: boolean;
 };
 
@@ -29,7 +29,28 @@ export function useRelayer(): useRelayerReturn {
   const [txHashes, setTxHashes] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const userAddress = user?.wallet?.address;
+  // Fonction pour extraire l'adresse wallet depuis Privy Cross App (même logique que AuthButton.tsx)
+  const extractWalletFromPrivy = useCallback(() => {
+    if (!user) return null;
+    
+    const userData = user as any;
+    
+    // Vérifier les linkedAccounts pour cross_app
+    if (userData.linkedAccounts && userData.linkedAccounts.length > 0) {
+      const crossAppAccount = userData.linkedAccounts.find((account: any) => account.type === "cross_app");
+      if (crossAppAccount && crossAppAccount.embeddedWallets && crossAppAccount.embeddedWallets.length > 0) {
+        const crossAppEmbeddedWallet = crossAppAccount.embeddedWallets[0];
+        if (crossAppEmbeddedWallet.address) {
+          return crossAppEmbeddedWallet.address;
+        }
+      }
+    }
+
+    return null;
+  }, [user]);
+
+  // Utiliser l'adresse Cross App au lieu de l'adresse wallet principale
+  const userAddress = extractWalletFromPrivy();
   const isUserConnected = authenticated && !!userAddress;
 
   // Fonction générique pour les appels API
@@ -39,6 +60,8 @@ export function useRelayer(): useRelayerReturn {
     additionalParams: Record<string, any> = {}
   ): Promise<RelayerResponse> => {
     try {
+      console.log(`🎮 Relayer call: ${action} for address: ${playerAddress}`);
+      
       const response = await fetch(RELAYER_API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -54,18 +77,19 @@ export function useRelayer(): useRelayerReturn {
         throw new Error(data.error || 'Transaction failed');
       }
       
+      console.log(`✅ ${action} successful: ${data.txHash}`);
       return { success: true, txHash: data.txHash };
     } catch (error) {
-      console.error(`${action} error:`, error);
+      console.error(`❌ ${action} error:`, error);
       return { success: false, error: (error as Error).message };
     }
   }, []);
 
-  // Transaction click (pour chaque zombie tué)
+  // Transaction click (pour chaque vague gagnée)
   const click = useCallback(async (playerAddress?: string) => {
     const targetAddress = playerAddress || userAddress;
     if (!targetAddress) {
-      console.warn('No player address available for click transaction');
+      console.warn('⚠️ No Cross App wallet address available for click transaction');
       return;
     }
 
@@ -75,7 +99,7 @@ export function useRelayer(): useRelayerReturn {
         setTxHashes(prev => [...prev, result.txHash!]);
       }
     } catch (error) {
-      console.log('Click transaction failed (non-blocking):', error);
+      console.log('❌ Click transaction failed (non-blocking):', error);
     }
   }, [userAddress, makeRelayerCall]);
 
@@ -86,11 +110,16 @@ export function useRelayer(): useRelayerReturn {
     playerAddress?: string
   ) => {
     const targetAddress = playerAddress || userAddress;
-    if (!targetAddress) return;
+    if (!targetAddress) {
+      console.warn('⚠️ No Cross App wallet address available for score submission');
+      return;
+    }
     
     setIsLoading(true);
     setError(null);
     try {
+      console.log(`🏆 Submitting score: ${score}, transactions: ${transactions} for address: ${targetAddress}`);
+      
       const result = await makeRelayerCall('submitScoreMonad', targetAddress, { 
         score, 
         transactions 
