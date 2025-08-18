@@ -138,9 +138,9 @@ const CONFIG = {
     BULLET_DAMAGE_ZOMBIE: 25,
     BULLET_DAMAGE_CHOG: 20,
     BULLET_DAMAGE_BOSS: 15,
-    LASER_DAMAGE_ZOMBIE: 75,
-    LASER_DAMAGE_CHOG: 75,
-    LASER_DAMAGE_BOSS: 75,
+    LASER_DAMAGE_ZOMBIE: 80,
+    LASER_DAMAGE_CHOG: 80,
+    LASER_DAMAGE_BOSS: 80,
     PLASMA_DAMAGE_ZOMBIE: 80,
     PLASMA_DAMAGE_CHOG: 80,
     PLASMA_DAMAGE_BOSS: 80,
@@ -157,7 +157,7 @@ const CONFIG = {
     destroyer: {
       name: 'Destroyer',
       image: '/img/boss1.gif',
-      healthMultiplier: 1.0,
+      healthMultiplier: 1.2,
       speedMultiplier: 1.0,
       damageMultiplier: 1.0,
       color: 'bg-purple-500',
@@ -166,7 +166,7 @@ const CONFIG = {
     titan: {
       name: 'Titan',
       image: '/img/boss2.gif',
-      healthMultiplier: 1.3,
+      healthMultiplier: 1.8,
       speedMultiplier: 1.0,
       damageMultiplier: 1.5,
       color: 'bg-red-500',
@@ -175,7 +175,7 @@ const CONFIG = {
     nightmare: {
       name: 'Nightmare',
       image: '/img/boss3.gif',
-      healthMultiplier: 0.8,
+      healthMultiplier: 1.2,
       speedMultiplier: 1.5,
       damageMultiplier: 1.2,
       color: 'bg-green-500',
@@ -207,7 +207,7 @@ const CONFIG = {
     shotgun: 100,
     rocket: 250,
     plasma: 210,
-    laser: 175,
+    laser: 130,
     normal: 100,
   },
   SPAWN: {
