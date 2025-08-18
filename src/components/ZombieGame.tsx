@@ -691,6 +691,8 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
 
     try {
       setSubmitMessage(null);
+
+      // 1. Soumettre au leaderboard
       await submitScore({
         username: userData.monadUsername,
         wallet_address: userData.crossAppWallet,
@@ -698,25 +700,29 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
         enemies_killed: zombiesKilled,
         score: score
       });
+
+      // 2. Soumettre au contrat Monad (une seule fois ici)
+      if (BLOCKCHAIN_TX_ENABLED && playerAddress) {
+        await submitScoreMonad(score, totalTransactions);
+      }
+
       setSubmitMessage({ type: 'success', text: 'Score soumis avec succès au leaderboard !' });
+
     } catch (error) {
       console.error('Erreur lors de la soumission du score:', error);
       setSubmitMessage({ type: 'error', text: 'Erreur lors de la soumission du score.' });
     }
-  }, [userData, authenticated, score, wave, zombiesKilled, submitScore, isSubmittingToLeaderboard, submitMessage?.type]);
+  }, [userData, authenticated, score, wave, zombiesKilled, submitScore, isSubmittingToLeaderboard, submitMessage?.type, playerAddress, submitScoreMonad, totalTransactions]);
 
   // Soumission automatique au leaderboard en cas de game over
   useEffect(() => {
     if (gameState === 'gameOver' && userData.monadUsername && userData.crossAppWallet && authenticated) {
       submitToLeaderboard();
-      submitGameScore();
+
     }
   }, [gameState, userData.monadUsername, userData.crossAppWallet, authenticated, submitToLeaderboard]);
 
-  const submitGameScore = useCallback(async () => {
-    if (!playerAddress || !authenticated || isSubmittingScore) return;
-    await submitScoreMonad(score, totalTransactions);
-  }, [playerAddress, authenticated, score, totalTransactions, isSubmittingScore, submitScoreMonad]);
+  
 
   // Fonction de démarrage optimisée
   const startGame = useCallback(() => {
@@ -1280,7 +1286,7 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
 
 
               <div className="flex flex-col space-y-3">
-                
+
                 <button
                   onClick={shareOnTwitter}
                   className="px-16 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold transition-all duration-200 text-xl"
