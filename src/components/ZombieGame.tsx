@@ -285,6 +285,7 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
   const [submitMessage, setSubmitMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [isSpawning, setIsSpawning] = useState(false);
   const spawnTimeoutsRef = useRef<NodeJS.Timeout[]>([]);
+  const [hasSubmittedScore, setHasSubmittedScore] = useState(false);
 
   // Hooks externes
   const {
@@ -686,12 +687,23 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
   }, [audioFunctions.playBoss]);
 
   const submitToLeaderboard = useCallback(async () => {
-    if (!userData.monadUsername || !userData.crossAppWallet || !authenticated || isSubmittingToLeaderboard || submitMessage?.type === 'success') return;
+    // Vérification de garde supplémentaire
+    if (!userData.monadUsername ||
+      !userData.crossAppWallet ||
+      !authenticated ||
+      isSubmittingToLeaderboard ||
+      submitMessage?.type === 'success' ||
+      hasSubmittedScore) {
+      console.log('⚠️ Submission blocked - conditions not met');
+      return;
+    }
 
     try {
+      console.log('📊 Starting score submission...');
       setSubmitMessage(null);
 
       // 1. Soumettre au leaderboard
+      console.log('📝 Submitting to leaderboard...');
       await submitScore({
         username: userData.monadUsername,
         wallet_address: userData.crossAppWallet,
@@ -702,26 +714,35 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
 
       // 2. Soumettre au contrat Monad (une seule fois ici)
       if (BLOCKCHAIN_TX_ENABLED && playerAddress) {
+        console.log('⛓️ Submitting to Monad contract...');
         await submitScoreMonad(score, totalTransactions);
       }
 
       setSubmitMessage({ type: 'success', text: 'Score soumis avec succès au leaderboard !' });
+      console.log('✅ All submissions completed successfully');
 
     } catch (error) {
-      console.error('Erreur lors de la soumission du score:', error);
+      console.error('❌ Erreur lors de la soumission du score:', error);
       setSubmitMessage({ type: 'error', text: 'Erreur lors de la soumission du score.' });
+      setHasSubmittedScore(false); // Permettre un retry en cas d'erreur
     }
-  }, [userData, authenticated, score, wave, zombiesKilled, submitScore, isSubmittingToLeaderboard, submitMessage?.type, playerAddress, submitScoreMonad, totalTransactions]);
-
+  }, [userData, authenticated, score, wave, zombiesKilled, submitScore, isSubmittingToLeaderboard, submitMessage?.type, playerAddress, submitScoreMonad, totalTransactions, hasSubmittedScore]);
+  
   // Soumission automatique au leaderboard en cas de game over
   useEffect(() => {
-    if (gameState === 'gameOver' && userData.monadUsername && userData.crossAppWallet && authenticated) {
+    if (gameState === 'gameOver' &&
+      userData.monadUsername &&
+      userData.crossAppWallet &&
+      authenticated &&
+      !hasSubmittedScore) {
+
+      console.log('🎯 Game Over detected - submitting score...');
       submitToLeaderboard();
-
+      setHasSubmittedScore(true);
     }
-  }, [gameState, userData.monadUsername, userData.crossAppWallet, authenticated, submitToLeaderboard]);
+  }, [gameState, userData.monadUsername, userData.crossAppWallet, authenticated, hasSubmittedScore, submitToLeaderboard]);
 
-  
+
 
   // Fonction de démarrage optimisée
   const startGame = useCallback(() => {
@@ -730,6 +751,7 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
     spawnTimeoutsRef.current = [];
 
     setGameState('playing');
+    setHasSubmittedScore(false); 
     setPlayer({ x: CONFIG.GAME.WIDTH / 2, y: CONFIG.GAME.HEIGHT / 2, health: 100, maxHealth: 100 });
     setZombies([]);
     setBullets([]);
