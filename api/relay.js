@@ -4,7 +4,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 
 // Adresses des contrats
 const SIFU_CLICK_CONTRACT_ADDRESS = "0x86282eefde3e840fb660f04a4a5d4be85a4a8f79";
-const MONAD_CONTRACT_ADDRESS = "0xE1B25BEF05F647Fe93dE082769fc2e2E2A112a5b";
+const MONAD_CONTRACT_ADDRESS = "0xceCBFF203C8B6044F52CE23D914A1bfD997541A4";
 
 // ABI du contrat SifuClick
 const SIFU_CLICK_CONTRACT_ABI = [
