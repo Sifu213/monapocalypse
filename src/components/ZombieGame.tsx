@@ -114,20 +114,20 @@ const CONFIG = {
     ZOMBIE_BASE_HEALTH: 250,
     ZOMBIE_HEALTH_PER_WAVE: 5,
     ZOMBIE_BASE_SPEED: 0.8,
-    ZOMBIE_SPEED_PER_WAVE: 0.05,
+    ZOMBIE_SPEED_PER_WAVE: 0.03,
     ZOMBIE_MAX_SPEED: 3.5, // Vitesse maximale pour les zombies (87.5% de la vitesse joueur)
     ZOMBIE_DAMAGE: 1,
     CHOG_BASE_HEALTH: 150,
     CHOG_HEALTH_PER_WAVE: 5,
     CHOG_BASE_SPEED: 1.2,
-    CHOG_SPEED_PER_WAVE: 0.05,
+    CHOG_SPEED_PER_WAVE: 0.03,
     CHOG_MAX_SPEED: 3.8, // Vitesse maximale pour les chogs (95% de la vitesse joueur)
     CHOG_DAMAGE: 2,
     CHOG_START_WAVE: 3,
     BOSS_BASE_HEALTH: 2000,
     BOSS_HEALTH_PER_WAVE: 500,
     BOSS_BASE_SPEED: 0.5,
-    BOSS_SPEED_PER_WAVE: 0.1,
+    BOSS_SPEED_PER_WAVE: 0.05,
     BOSS_MAX_SPEED: 3.2, // Vitesse maximale pour les boss (80% de la vitesse joueur)
     BOSS_DAMAGE: 3,
     BOSS_WAVE_INTERVAL: 5,
