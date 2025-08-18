@@ -212,9 +212,9 @@ const CONFIG = {
   },
   SPAWN: {
     DURATION: 8000,           // Durée totale d'apparition (5s)
-    MIN_DELAY: 200,           // Délai minimum entre spawns (200ms)
+    MIN_DELAY: 400,           // Délai minimum entre spawns (200ms)
     MAX_DELAY: 1200,          // Délai maximum entre spawns (1200ms)
-    OVERLAP_FACTOR: 0.8,      // Facteur pour permettre du chevauchement
+    OVERLAP_FACTOR: 0.6,      // Facteur pour permettre du chevauchement
   }
 } as const;
 
