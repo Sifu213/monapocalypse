@@ -2,7 +2,6 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { handleRelayRequest } from './src/lib/relayer.js';
 
 // Charger les variables d'environnement
 dotenv.config({ path: '.env.local' });

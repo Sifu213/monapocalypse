@@ -1304,10 +1304,7 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
               <p className="text-white">Transactions: {totalTransactions}</p>
               <p className="text-white">Waves finished: {wave - 1}</p>
 
-
-
               <div className="flex flex-col space-y-3">
-
                 <button
                   onClick={shareOnTwitter}
                   className="px-16 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold transition-all duration-200 text-xl"
@@ -1321,7 +1318,6 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
                 >
                   Replay
                 </button>
-
               </div>
             </div>
           </div>
@@ -1330,6 +1326,26 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
         {/* Éléments de jeu */}
         {(gameState === 'playing' || gameState === 'waveTransition') && (
           <>
+            {/* Barre de vie du boss - en haut de la zone de jeu */}
+            {zombies.find(z => z.isBoss) && (
+              <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-40">
+                <div className="flex items-center space-x-2 px-4 py-2 bg-opacity-0 ">
+                  <span className="text-red-400 font-bold text-sm">BOSS</span>
+                  <div className="w-80 h-4 bg-gray-800 border border-red-400 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-red-500 transition-all duration-300 rounded-full shadow-inner"
+                      style={{ 
+                        width: `${(zombies.find(z => z.isBoss)!.health / zombies.find(z => z.isBoss)!.maxHealth) * 100}%` 
+                      }}
+                    />
+                  </div>
+                  <span className="text-red-400 text-sm font-bold">
+                    {Math.ceil((zombies.find(z => z.isBoss)!.health / zombies.find(z => z.isBoss)!.maxHealth) * 100)}%
+                  </span>
+                </div>
+              </div>
+            )}
+
             {renderPlayer}
             {renderHealthBar}
 
@@ -1344,8 +1360,6 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
                 const size = zombie.isBoss ? 100 : 50;
                 const halfSize = size / 2;
          
-                const bossConfig = zombie.isBoss && zombie.bossType ? CONFIG.BOSS_TYPES[zombie.bossType] : null;
-                
                 let imageSrc;
                 if (zombie.isBoss) {
                   switch (zombie.bossType) {
@@ -1364,9 +1378,6 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
                 } else {
                   imageSrc = zombie.isChog ? "/img/chog.gif" : "/img/molandakz.gif";
                 }
-
-                const healthBarColor = zombie.isBoss && bossConfig ? bossConfig.color :
-                  zombie.isChog ? 'bg-orange-500' : 'bg-red-500';
 
                 return (
                   <div
@@ -1387,14 +1398,15 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
                       className={`w-full h-full object-contain select-none pointer-events-none ${zombie.isBoss ? '' : 'rounded-full'}`}
                       draggable={false}
                     />
-                    <div className={`absolute -top-1 left-1/2 transform -translate-x-1/2 h-1 bg-gray-600 rounded-full ${zombie.isBoss ? 'w-20' : 'w-12'}`}>
-                      <div
-                        className={`h-full rounded-full transition-all duration-200 ${healthBarColor}`}
-                        style={{ width: `${(zombie.health / zombie.maxHealth) * 100}%` }}
-                      />
-                    </div>
-
-
+                    {/* Barre de vie uniquement pour zombies et chogs, pas pour les boss */}
+                    {!zombie.isBoss && (
+                      <div className={`absolute -top-1 left-1/2 transform -translate-x-1/2 h-1 bg-gray-600 rounded-full w-12`}>
+                        <div
+                          className={`h-full rounded-full transition-all duration-200 ${zombie.isChog ? 'bg-orange-500' : 'bg-red-500'}`}
+                          style={{ width: `${(zombie.health / zombie.maxHealth) * 100}%` }}
+                        />
+                      </div>
+                    )}
                   </div>
                 );
               })}
