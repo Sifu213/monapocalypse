@@ -145,9 +145,9 @@ const CONFIG = {
     PLASMA_DAMAGE_CHOG: 80,
     PLASMA_DAMAGE_BOSS: 80,
     PLASMA_EXPLOSION_RADIUS: 60,
-    ROCKET_DAMAGE_ZOMBIE: 180,
-    ROCKET_DAMAGE_CHOG: 180,
-    ROCKET_DAMAGE_BOSS: 180,
+    ROCKET_DAMAGE_ZOMBIE: 300,
+    ROCKET_DAMAGE_CHOG: 300,
+    ROCKET_DAMAGE_BOSS: 300,
     ROCKET_EXPLOSION_RADIUS: 180,
     ROCKET_SELF_DAMAGE: 20,
     ROCKET_SAFE_DISTANCE: 60,
@@ -862,7 +862,7 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
       });
 
       // Tir automatique
-      if (isMouseDown && weaponBonus.type !== 'rocket') { // Désactiver le tir automatique pour rocket
+      if (isMouseDown && weaponBonus.type !== 'rocket') { 
         const fireRate = CONFIG.FIRE_RATES[weaponBonus.type || 'normal'];
         if (currentTime - lastShotTime >= fireRate) {
           fireBullet();
@@ -1343,25 +1343,22 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
               .map(zombie => {
                 const size = zombie.isBoss ? 100 : 50;
                 const halfSize = size / 2;
-
-                // Obtenir les informations du boss si c'est un boss
+         
                 const bossConfig = zombie.isBoss && zombie.bossType ? CONFIG.BOSS_TYPES[zombie.bossType] : null;
-
-                // Pour l'instant, utiliser l'image originale pour tous les boss
-                // Vous pourrez changer ces chemins quand vous aurez les nouvelles images
+                
                 let imageSrc;
                 if (zombie.isBoss) {
                   switch (zombie.bossType) {
                     case 'titan':
-                      imageSrc = "/img/boss3.gif"; // Changez vers "/img/boss2.gif" quand disponible
+                      imageSrc = "/img/boss2.gif"; 
                       break;
                     case 'nightmare':
-                      imageSrc = "/img/boss3.gif"; // Changez vers "/img/boss3.gif" quand disponible
+                      imageSrc = "/img/boss3.gif"; 
                       break;
                     case 'overlord':
-                      imageSrc = "/img/boss3.gif"; // Changez vers "/img/boss4.gif" quand disponible
+                      imageSrc = "/img/boss4.gif"; 
                       break;
-                    default: // destroyer
+                    default: 
                       imageSrc = "/img/boss.gif";
                   }
                 } else {
