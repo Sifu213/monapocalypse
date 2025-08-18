@@ -148,7 +148,7 @@ const CONFIG = {
     ROCKET_DAMAGE_ZOMBIE: 300,
     ROCKET_DAMAGE_CHOG: 300,
     ROCKET_DAMAGE_BOSS: 300,
-    ROCKET_EXPLOSION_RADIUS: 180,
+    ROCKET_EXPLOSION_RADIUS: 100,
     ROCKET_SELF_DAMAGE: 20,
     ROCKET_SAFE_DISTANCE: 60,
     SHIELD_DURATION: 30000,
@@ -1384,7 +1384,7 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
                     <img
                       src={imageSrc}
                       alt={zombie.isBoss ? `boss-${zombie.bossType}` : zombie.isChog ? "chog" : "zombie"}
-                      className="w-full h-full object-cover rounded-full select-none pointer-events-none"
+                      className={`w-full h-full object-contain select-none pointer-events-none ${zombie.isBoss ? '' : 'rounded-full'}`}
                       draggable={false}
                     />
                     <div className={`absolute -top-1 left-1/2 transform -translate-x-1/2 h-1 bg-gray-600 rounded-full ${zombie.isBoss ? 'w-20' : 'w-12'}`}>
