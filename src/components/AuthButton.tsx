@@ -127,7 +127,7 @@ export default function AuthButton({ onUserDataChange }: AuthButtonProps) {
     return (
       <div className="flex items-center justify-center p-4">
         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-500"></div>
-        <span className="ml-2 text-gray-400">Chargement...</span>
+        <span className="ml-2 text-gray-400">Loading...</span>
       </div>
     );
   }
@@ -164,7 +164,7 @@ export default function AuthButton({ onUserDataChange }: AuthButtonProps) {
             {isLoadingUsername ? (
               <div className="flex items-center space-x-2">
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-300"></div>
-                <span className="text-purple-300 text-sm">Chargement...</span>
+                <span className="text-purple-300 text-sm">Loading...</span>
               </div>
             ) : monadUsername ? (
               <div className="text-center">
@@ -174,7 +174,7 @@ export default function AuthButton({ onUserDataChange }: AuthButtonProps) {
             ) : (
               <div className="text-center">
                 <span className="text-gray-400 text-xs">Monad Games ID</span>
-                <p className="text-gray-500 text-sm">Non trouvé</p>
+                <p className="text-gray-500 text-sm">Not found</p>
               </div>
             )}
           </div>
@@ -185,7 +185,7 @@ export default function AuthButton({ onUserDataChange }: AuthButtonProps) {
           className="flex items-center space-x-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors duration-200"
         >
           <LogOut className="w-4 h-4" />
-          <span>Déconnexion</span>
+          <span>Disconnect</span>
         </button>
       </div>
     );
