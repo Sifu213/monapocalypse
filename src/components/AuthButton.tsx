@@ -1,5 +1,5 @@
 import { usePrivy, useCrossAppAccounts } from '@privy-io/react-auth';
-import { LogOut, Wallet, User } from 'lucide-react';
+import { LogOut, Wallet, User, ExternalLink } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 
 interface MonadGameUser {
@@ -74,6 +74,28 @@ export default function AuthButton({ onUserDataChange }: AuthButtonProps) {
     }
   }, []);
 
+  // Fonction pour ouvrir le site de création d'username
+  const handleCreateUsername = () => {
+    const crossAppWallet = extractWalletFromPrivy();
+    const baseUrl = 'https://monad-games-id-site.vercel.app/';
+    
+    // Si on a une wallet, on peut la passer en paramètre pour pré-remplir
+    const urlWithWallet = crossAppWallet 
+      ? `${baseUrl}?wallet=${encodeURIComponent(crossAppWallet)}`
+      : baseUrl;
+    
+    // Ouvrir dans un nouvel onglet
+    window.open(urlWithWallet, '_blank', 'noopener,noreferrer');
+  };
+
+  // Fonction pour rafraîchir le username après création
+  const handleRefreshUsername = () => {
+    const crossAppWallet = extractWalletFromPrivy();
+    if (crossAppWallet) {
+      fetchMonadUsername(crossAppWallet);
+    }
+  };
+
   // Effet pour récupérer le username quand l'utilisateur se connecte
   useEffect(() => {
     if (authenticated && user) {
@@ -84,10 +106,10 @@ export default function AuthButton({ onUserDataChange }: AuthButtonProps) {
         fetchMonadUsername(crossAppWallet);
       } else {
         console.log('❌ Aucun wallet Cross App trouvé');
-        setMonadUsername("keoneh")
+        setMonadUsername(null)
       }
     } else {
-      setMonadUsername("keoneh");
+      setMonadUsername(null);
     }
   }, [authenticated, user, extractWalletFromPrivy, fetchMonadUsername]);
 
@@ -159,23 +181,46 @@ export default function AuthButton({ onUserDataChange }: AuthButtonProps) {
 
         {/* Affichage du username Monad Games ID */}
         {crossAppWallet && (
-          <div className="flex items-center w-full space-x-2 px-3 py-2 bg-purple-900 rounded-lg border border-purple-600">
-            <User className="w-4 h-4 text-purple-300" />
-            {isLoadingUsername ? (
-              <div className="flex items-center space-x-2">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-300"></div>
-                <span className="text-purple-300 text-sm">Loading...</span>
-              </div>
-            ) : monadUsername ? (
-              <div className="text-center">
-                <span className="text-purple-300 text-xs">Monad Games ID</span>
-                <p className="text-white font-bold">{monadUsername}</p>
-              </div>
-            ) : (
-              <div className="text-center">
-                <span className="text-gray-400 text-xs">Monad Games ID</span>
-                <p className="text-gray-500 text-sm">Not found</p>
-              </div>
+          <div className="flex flex-col items-center w-full space-y-2">
+            <div className="flex items-center w-full space-x-2 px-3 py-2 bg-purple-900 rounded-lg border border-purple-600">
+              <User className="w-4 h-4 text-purple-300" />
+              {isLoadingUsername ? (
+                <div className="flex items-center space-x-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-300"></div>
+                  <span className="text-purple-300 text-sm">Loading...</span>
+                </div>
+              ) : monadUsername ? (
+                <div className="text-center">
+                  <span className="text-purple-300 text-xs">Monad Games ID</span>
+                  <p className="text-white font-bold">{monadUsername}</p>
+                </div>
+              ) : (
+                <div className="text-center flex-1">
+                  <span className="text-gray-400 text-xs">Monad Games ID</span>
+                  <p className="text-gray-500 text-sm">Not found</p>
+                </div>
+              )}
+            </div>
+
+            {/* Boutons pour créer/rafraîchir username */}
+            {!monadUsername && !isLoadingUsername && (
+              <button
+                onClick={handleCreateUsername}
+                className="flex items-center space-x-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors duration-200 text-sm w-full justify-center"
+              >
+                <ExternalLink className="w-4 h-4" />
+                <span>Create Monad Games ID</span>
+              </button>
+            )}
+
+            {!monadUsername && (
+              <button
+                onClick={handleRefreshUsername}
+                disabled={isLoadingUsername}
+                className="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded text-xs transition-colors duration-200 disabled:opacity-50"
+              >
+                Refresh
+              </button>
             )}
           </div>
         )}
