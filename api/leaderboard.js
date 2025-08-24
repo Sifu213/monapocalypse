@@ -1,21 +1,29 @@
 // api/leaderboard.js - Handler pour l'endpoint leaderboard
 import { createClient } from '@supabase/supabase-js';
 
-
+// api/leaderboard.js - Handler pour l'endpoint leaderboard avec validation
+import { createClient } from '@supabase/supabase-js';
+import { validateScore, logValidation } from './scoreValidator.js';
 
 const leaderboardHandler = async (req, res) => {
   console.log('\n🏆 LEADERBOARD REQUEST RECEIVED');
   console.log('📦 Request body:', req.body);
 
-  // Configuration Supabase avec la clé service
+  // Configuration Supabase avec la clé service (déplacée ici)
   const supabaseUrl = process.env.VITE_SUPABASE_URL;
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
-
-  const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!supabaseUrl || !supabaseServiceKey) {
-    throw new Error('Missing Supabase environment variables');
+    console.error('❌ Missing Supabase environment variables');
+    console.error('VITE_SUPABASE_URL:', !!supabaseUrl);
+    console.error('SUPABASE_SERVICE_ROLE_KEY:', !!supabaseServiceKey);
+    return res.status(500).json({
+      success: false,
+      error: 'Server configuration error'
+    });
   }
+
+  const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
   // Vérification de la méthode HTTP
   if (req.method !== 'POST') {
@@ -29,7 +37,7 @@ const leaderboardHandler = async (req, res) => {
   try {
     const submission = req.body;
 
-    // Validation des données
+    // Validation des données de base
     const { username, wallet_address, waves_completed, enemies_killed, score } = submission;
 
     if (!username || !wallet_address || typeof score !== 'number') {
@@ -40,7 +48,21 @@ const leaderboardHandler = async (req, res) => {
       });
     }
 
-    // Validations supplémentaires
+    // NOUVELLE VALIDATION : Validation logique du score
+    const validationResult = validateScore(submission);
+    logValidation(submission, validationResult);
+
+    if (!validationResult.isValid) {
+      console.log('❌ Score validation failed');
+      return res.status(400).json({
+        success: false,
+        error: 'Score failed',
+      });
+    }
+
+    console.log('✅ Score validation passed');
+
+    // Validations supplémentaires existantes (gardées pour sécurité)
     if (score < 0 || score > 1000000) {
       console.log('❌ Invalid score value:', score);
       return res.status(400).json({
@@ -57,7 +79,7 @@ const leaderboardHandler = async (req, res) => {
       });
     }
 
-    if (enemies_killed < 0 || enemies_killed > 100000) {
+    if (enemies_killed < 0 || enemies_killed > 500000) {
       console.log('❌ Invalid enemies killed value:', enemies_killed);
       return res.status(400).json({
         success: false,
@@ -65,7 +87,25 @@ const leaderboardHandler = async (req, res) => {
       });
     }
 
-    console.log('✅ Data validation passed');
+    console.log('✅ All validations passed');
+
+    // Vérification anti-spam : pas plus d'un score par wallet par minute
+    const oneMinuteAgo = new Date(Date.now() - 60000).toISOString();
+    const { data: recentSubmissions, error: checkError } = await supabaseAdmin
+      .from('leaderboard_monapocalypse')
+      .select('created_at')
+      .eq('wallet_address', wallet_address.trim())
+      .gt('created_at', oneMinuteAgo);
+
+    if (checkError) {
+      console.error('❌ Error checking recent submissions:', checkError);
+    } else if (recentSubmissions && recentSubmissions.length > 0) {
+      console.log('❌ Rate limit: Recent submission found for wallet:', wallet_address);
+      return res.status(429).json({
+        success: false,
+        error: 'Rate limit: Please wait before submitting another score'
+      });
+    }
 
     // Insertion dans Supabase avec la clé service
     const { data, error } = await supabaseAdmin
@@ -88,11 +128,17 @@ const leaderboardHandler = async (req, res) => {
       });
     }
 
-    console.log('✅ Score submitted successfully:', data);
+    console.log('✅ Score submitted successfully:', {
+      id: data.id,
+      username: data.username,
+      score: data.score,
+      validation: validationResult.details
+    });
 
     return res.status(200).json({
       success: true,
-      data
+      data,
+      validation: validationResult.details
     });
 
   } catch (error) {
