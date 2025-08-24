@@ -1,7 +1,3 @@
-// api/leaderboard.js - Handler pour l'endpoint leaderboard
-import { createClient } from '@supabase/supabase-js';
-
-// api/leaderboard.js - Handler pour l'endpoint leaderboard avec validation
 import { createClient } from '@supabase/supabase-js';
 import { validateScore, logValidation } from './scoreValidator.js';
 
