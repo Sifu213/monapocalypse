@@ -60,7 +60,6 @@ export function useRelayer(): useRelayerReturn {
     additionalParams: Record<string, any> = {}
   ): Promise<RelayerResponse> => {
     try {
-      console.log(`🎮 Relayer call: ${action} for address: ${playerAddress}`);
       
       const response = await fetch(RELAYER_API_URL, {
         method: 'POST',
@@ -118,7 +117,7 @@ export function useRelayer(): useRelayerReturn {
     setIsLoading(true);
     setError(null);
     try {
-      console.log(`🏆 Submitting score: ${score}, transactions: ${transactions} for address: ${targetAddress}`);
+      
       
       const result = await makeRelayerCall('submitScoreMonad', targetAddress, { 
         score, 

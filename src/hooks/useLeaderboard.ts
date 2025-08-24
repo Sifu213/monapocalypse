@@ -54,7 +54,6 @@ export const useLeaderboard = () => {
         throw new Error(result.error || 'Erreur lors de la soumission du score');
       }
 
-      console.log('Score soumis avec succès:', result.data);
       return result.data;
     } catch (error) {
       console.error('Erreur lors de la soumission du score:', error);

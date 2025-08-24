@@ -699,11 +699,9 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
     }
 
     try {
-      console.log('📊 Starting score submission...');
+      
       setSubmitMessage(null);
 
-      // 1. Soumettre au leaderboard
-      console.log('📝 Submitting to leaderboard...');
       await submitScore({
         username: userData.monadUsername,
         wallet_address: userData.crossAppWallet,
@@ -714,12 +712,12 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
 
       // 2. Soumettre au contrat Monad (une seule fois ici)
       if (BLOCKCHAIN_TX_ENABLED && playerAddress) {
-        console.log('⛓️ Submitting to Monad contract...');
+        
         await submitScoreMonad(score, totalTransactions);
       }
 
       setSubmitMessage({ type: 'success', text: 'Score soumis avec succès au leaderboard !' });
-      console.log('✅ All submissions completed successfully');
+      
 
     } catch (error) {
       console.error('❌ Erreur lors de la soumission du score:', error);
@@ -736,7 +734,7 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
       authenticated &&
       !hasSubmittedScore) {
 
-      console.log('🎯 Game Over detected - submitting score...');
+      
       submitToLeaderboard();
       setHasSubmittedScore(true);
     }
