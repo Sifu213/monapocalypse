@@ -1,13 +1,14 @@
-// server.js - Express Server (corrigé)
+// server.js - Express Server (mis à jour avec leaderboard)
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 
-// Importer la fonction handler de relay.js
+// Importer les handlers
 import relayHandler from './api/relay.js';
+import leaderboardHandler from './api/leaderboard.js';
 
 // Charger les variables d'environnement
-dotenv.config({ path: '.env.local' });
+dotenv.config({ path: '.env' });
 dotenv.config();
 
 const PORT = process.env.PORT || 3001;
@@ -51,6 +52,25 @@ app.post('/api/relay', async (req, res) => {
   }
 });
 
+// Route API pour le leaderboard - NOUVELLE
+app.post('/api/leaderboard', async (req, res) => {
+  console.log('\n🏆 LEADERBOARD REQUEST RECEIVED');
+  console.log('📦 Request body:', req.body);
+  
+  try {
+    await leaderboardHandler(req, res);
+  } catch (error) {
+    console.error('❌ LEADERBOARD ERROR in server.js:', error);
+    
+    if (!res.headersSent) {
+      res.status(error.status || 500).json({
+        error: error.error || 'Erreur serveur leaderboard',
+        details: error.details || error.message
+      });
+    }
+  }
+});
+
 // Routes utilitaires
 app.get('/health', (req, res) => {
   console.log('✅ Health check called');
@@ -61,7 +81,9 @@ app.get('/health', (req, res) => {
     env_vars: {
       RELAYER_PK: !!process.env.RELAYER_PK,
       MONAD_RPC_URL: !!process.env.MONAD_RPC_URL,
-      MONAD_CHAIN_ID: !!process.env.MONAD_CHAIN_ID
+      MONAD_CHAIN_ID: !!process.env.MONAD_CHAIN_ID,
+      VITE_SUPABASE_URL: !!process.env.VITE_SUPABASE_URL,
+      SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY
     }
   });
 });
@@ -69,7 +91,7 @@ app.get('/health', (req, res) => {
 app.get('/api/test', (req, res) => {
   console.log('🧪 Test endpoint called');
   res.json({ 
-    message: 'Serveur relayer Monad actif!',
+    message: 'Serveur relayer Monad et Leaderboard actif!',
     timestamp: new Date().toISOString()
   });
 });
@@ -98,11 +120,12 @@ process.on('unhandledRejection', (reason, promise) => {
 
 // Démarrage du serveur
 app.listen(PORT, () => {
-  console.log('\n🚀 ===== SERVEUR RELAYER DÉMARRÉ =====');
+  console.log('\n🚀 ===== SERVEUR RELAYER + LEADERBOARD DÉMARRÉ =====');
   console.log(`📡 Port: ${PORT}`);
   console.log(`🌐 Serveur: http://localhost:${PORT}`);
   console.log(`🎮 Frontend: http://localhost:5173`);
   console.log(`🔗 API relay: http://localhost:${PORT}/api/relay`);
+  console.log(`🏆 API leaderboard: http://localhost:${PORT}/api/leaderboard`);
   console.log(`💚 Health check: http://localhost:${PORT}/health`);
   console.log(`🧪 Test: http://localhost:${PORT}/api/test`);
   
@@ -111,7 +134,9 @@ app.listen(PORT, () => {
   console.log(`  - RELAYER_PK: ${process.env.RELAYER_PK ? '✅ Définie' : '❌ Manquante'}`);
   console.log(`  - MONAD_RPC_URL: ${process.env.MONAD_RPC_URL ? '✅ Définie' : '❌ Manquante'}`);
   console.log(`  - MONAD_CHAIN_ID: ${process.env.MONAD_CHAIN_ID ? '✅ Définie' : '❌ Manquante'}`);
+  console.log(`  - VITE_SUPABASE_URL: ${process.env.VITE_SUPABASE_URL ? '✅ Définie' : '❌ Manquante'}`);
+  console.log(`  - SUPABASE_SERVICE_ROLE_KEY: ${process.env.SUPABASE_SERVICE_ROLE_KEY ? '✅ Définie' : '❌ Manquante'}`);
   
-  console.log('\n⚡ Prêt à traiter les transactions Monad !');
-  console.log('=====================================\n');
+  console.log('\n⚡ Prêt à traiter les transactions Monad et les scores !');
+  console.log('=====================================================\n');
 });

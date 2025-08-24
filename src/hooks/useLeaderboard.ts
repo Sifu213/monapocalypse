@@ -2,11 +2,15 @@ import { useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import type { LeaderboardEntry, NewLeaderboardEntry } from '../lib/supabase';
 
+// Configuration Vite
+const VITE_SUPABASE_API_URL = import.meta.env.VITE_SUPABASE_API_URL || 
+  (import.meta.env.DEV ? 'http://localhost:3001/api/leaderboard' : '/api/leaderboard');
+
 export const useLeaderboard = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
 
-  // Récupérer le top 20 du leaderboard
+  // Récupérer le top 20 du leaderboard (lecture publique toujours autorisée)
   const fetchLeaderboard = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -31,23 +35,27 @@ export const useLeaderboard = () => {
     }
   }, []);
 
-  // Soumettre un nouveau score
+  // Soumettre un nouveau score via l'API
   const submitScore = useCallback(async (entry: NewLeaderboardEntry) => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('leaderboard_monapocalypse')
-        .insert([entry])
-        .select()
-        .single();
+      const response = await fetch(VITE_SUPABASE_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(entry),
+      });
 
-      if (error) {
-        console.error('Erreur lors de la soumission du score:', error);
-        throw error;
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        console.error('Erreur API:', result.error);
+        throw new Error(result.error || 'Erreur lors de la soumission du score');
       }
 
-      console.log('Score soumis avec succès:', data);
-      return data;
+      console.log('Score soumis avec succès:', result.data);
+      return result.data;
     } catch (error) {
       console.error('Erreur lors de la soumission du score:', error);
       throw error;
@@ -56,7 +64,7 @@ export const useLeaderboard = () => {
     }
   }, []);
 
-  // Vérifier le rang d'un score
+  // Vérifier le rang d'un score (lecture publique)
   const getScoreRank = useCallback(async (score: number) => {
     try {
       const { count, error } = await supabase
