@@ -584,7 +584,6 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
         const bossType = getRandomBossType();
         const bossConfig = CONFIG.BOSS_TYPES[bossType];
 
-        console.log(`🎲 Boss spawned: ${bossConfig.name} (${bossType})`);
 
         const baseHealth = CONFIG.DIFFICULTY.BOSS_BASE_HEALTH + (waveNumber * CONFIG.DIFFICULTY.BOSS_HEALTH_PER_WAVE);
         const health = Math.floor(baseHealth * bossConfig.healthMultiplier);
@@ -686,46 +685,57 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
     waveTransitionRef.current = false;
   }, [audioFunctions.playBoss]);
 
-  const submitToLeaderboard = useCallback(async () => {
-    // Vérification de garde supplémentaire
-    if (!userData.monadUsername ||
-      !userData.crossAppWallet ||
-      !authenticated ||
-      isSubmittingToLeaderboard ||
-      submitMessage?.type === 'success' ||
-      hasSubmittedScore) {
-      console.log('⚠️ Submission blocked - conditions not met');
-      return;
-    }
+  // Dans ZombieGame.tsx, remplacer cette partie dans submitToLeaderboard :
 
-    try {
+const submitToLeaderboard = useCallback(async () => {
+  // Vérification de garde supplémentaire
+  if (!userData.monadUsername ||
+    !userData.crossAppWallet ||
+    !authenticated ||
+    isSubmittingToLeaderboard ||
+    submitMessage?.type === 'success' ||
+    hasSubmittedScore) {
+    
+    return;
+  }
+
+  try {
+    
+    setSubmitMessage(null);
+
+    await submitScore({
+      username: userData.monadUsername,
+      wallet_address: userData.crossAppWallet,
+      waves_completed: wave - 1,
+      enemies_killed: zombiesKilled,
+      score: score
+    });
+
+    // 2. Soumettre au contrat Monad avec validation complète
+    if (BLOCKCHAIN_TX_ENABLED && playerAddress) {
       
-      setSubmitMessage(null);
-
-      await submitScore({
-        username: userData.monadUsername,
-        wallet_address: userData.crossAppWallet,
+      await submitScoreMonad({
+        score: score,
         waves_completed: wave - 1,
         enemies_killed: zombiesKilled,
-        score: score
+        total_transactions: totalTransactions
       });
-
-      // 2. Soumettre au contrat Monad (une seule fois ici)
-      if (BLOCKCHAIN_TX_ENABLED && playerAddress) {
-        
-        await submitScoreMonad(score, totalTransactions);
-      }
-
-      setSubmitMessage({ type: 'success', text: 'Score soumis avec succès au leaderboard !' });
-      
-
-    } catch (error) {
-      console.error('❌ Erreur lors de la soumission du score:', error);
-      setSubmitMessage({ type: 'error', text: 'Erreur lors de la soumission du score.' });
-      setHasSubmittedScore(false); // Permettre un retry en cas d'erreur
     }
-  }, [userData, authenticated, score, wave, zombiesKilled, submitScore, isSubmittingToLeaderboard, submitMessage?.type, playerAddress, submitScoreMonad, totalTransactions, hasSubmittedScore]);
-  
+
+    setSubmitMessage({ type: 'success', text: 'Score soumis avec succès au leaderboard !' });
+    
+
+  } catch (error) {
+    console.error('❌ Erreur lors de la soumission du score:', error);
+    
+    // Messages d'erreur plus spécifiques
+    let errorMessage = 'Erreur lors de la soumission du score.';
+    
+    
+    setSubmitMessage({ type: 'error', text: errorMessage });
+    setHasSubmittedScore(false); // Permettre un retry en cas d'erreur
+  }
+}, [userData, authenticated, score, wave, zombiesKilled, submitScore, isSubmittingToLeaderboard, submitMessage?.type, playerAddress, submitScoreMonad, totalTransactions, hasSubmittedScore]);
   // Soumission automatique au leaderboard en cas de game over
   useEffect(() => {
     if (gameState === 'gameOver' &&

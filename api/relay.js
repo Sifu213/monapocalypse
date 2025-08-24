@@ -1,6 +1,7 @@
-// api/relay.js - Vercel Serverless Function unifiée avec logs détaillés
+// api/relay.js - Vercel Serverless Function avec validation de score
 import { createWalletClient, getContract, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
+import { validateScore, logValidation } from './scoreValidator.js';
 
 // Adresses des contrats
 const SIFU_CLICK_CONTRACT_ADDRESS = "0x86282eefde3e840fb660f04a4a5d4be85a4a8f79";
@@ -55,6 +56,10 @@ let transactionQueue = [];
 let isProcessing = false;
 let currentNonce = null;
 
+// Cache pour les validations récentes (anti-spam)
+const recentValidations = new Map();
+const VALIDATION_CACHE_TTL = 60000; // 1 minute
+
 class RelayerService {
   constructor() {
     this.RELAYER_PRIVATE_KEY = process.env.RELAYER_PK;
@@ -70,6 +75,81 @@ class RelayerService {
     console.log(`  - Chain ID: ${this.CHAIN_ID}`);
     console.log(`  - Sifu Contract: ${SIFU_CLICK_CONTRACT_ADDRESS}`);
     console.log(`  - Monad Contract: ${MONAD_CONTRACT_ADDRESS}`);
+  }
+
+  // Validation du score avant soumission au contrat
+  validateScoreSubmission(playerAddress, score, waves_completed, enemies_killed, transactions) {
+    console.log('\n🔍 VALIDATION SCORE POUR CONTRAT WEB3');
+    
+    // Vérification anti-spam
+    const cacheKey = `${playerAddress}_${score}`;
+    const now = Date.now();
+    
+    if (recentValidations.has(cacheKey)) {
+      const lastValidation = recentValidations.get(cacheKey);
+      if (now - lastValidation < VALIDATION_CACHE_TTL) {
+        throw new Error(`Rate limit: Validation récente détectée pour ce score (${Math.ceil((VALIDATION_CACHE_TTL - (now - lastValidation)) / 1000)}s restantes)`);
+      }
+    }
+
+    // Si toutes les données de jeu sont disponibles, faire une validation complète
+    if (waves_completed !== undefined && enemies_killed !== undefined) {
+      console.log('📊 Validation complète avec données de jeu');
+      
+      const submission = {
+        username: 'web3_player', // Placeholder pour la validation
+        wallet_address: playerAddress,
+        waves_completed,
+        enemies_killed,
+        score
+      };
+
+      const validationResult = validateScore(submission);
+      logValidation(submission, validationResult);
+
+      if (!validationResult.isValid) {
+        console.log('❌ Validation complète échouée');
+        throw new Error(`Score validation failed: ${validationResult.errors.join(', ')}`);
+      }
+
+      console.log('✅ Validation complète réussie');
+      
+    } else {
+      // Validation partielle si données incomplètes
+      console.log('⚠️ Validation partielle (données incomplètes)');
+      
+      // Validations basiques
+      if (typeof score !== 'number' || score < 0 || score > 10000000) {
+        throw new Error('Score invalide (doit être entre 0 et 10,000,000)');
+      }
+
+      if (typeof transactions !== 'number' || transactions < 0 || transactions > 1000) {
+        throw new Error('Nombre de transactions invalide');
+      }
+
+      // Validation de cohérence score/transactions
+      if (transactions > 0) {
+        const scorePerTransaction = score / transactions;
+        if (scorePerTransaction > 50000) {
+          throw new Error('Ratio score/transaction suspicieusement élevé');
+        }
+      }
+
+      console.log('✅ Validation partielle réussie');
+    }
+
+    // Mettre en cache la validation
+    recentValidations.set(cacheKey, now);
+    
+    // Nettoyer le cache périodiquement
+    if (recentValidations.size > 1000) {
+      const cutoff = now - VALIDATION_CACHE_TTL;
+      for (const [key, timestamp] of recentValidations.entries()) {
+        if (timestamp < cutoff) {
+          recentValidations.delete(key);
+        }
+      }
+    }
   }
 
   async getWalletClient() {
@@ -106,14 +186,15 @@ class RelayerService {
     return walletClient;
   }
 
-  async processTransactionWithQueue(playerAddress, action, score, accuracy, transactions) {
+  async processTransactionWithQueue(playerAddress, action, score, waves_completed, enemies_killed, transactions) {
     return new Promise((resolve, reject) => {
       // Ajouter à la queue
       transactionQueue.push({
         playerAddress,
         action,
         score,
-        accuracy,
+        waves_completed,
+        enemies_killed,
         transactions,
         resolve,
         reject
@@ -138,7 +219,8 @@ class RelayerService {
           item.playerAddress,
           item.action,
           item.score,
-          item.accuracy,
+          item.waves_completed,
+          item.enemies_killed,
           item.transactions
         );
         item.resolve(txHash);
@@ -189,56 +271,6 @@ class RelayerService {
           
           if (receipt.status === '0x0') {
             console.error(`❌ TRANSACTION FAILED - Hash: ${txHash}`);
-            
-            // Essayer de récupérer plus d'infos sur l'erreur
-            try {
-              const tx = await walletClient.request({
-                method: "eth_getTransactionByHash",
-                params: [txHash],
-              });
-              console.log(`📋 Détails de la transaction échouée:`, {
-                from: tx.from,
-                to: tx.to,
-                value: tx.value,
-                gas: tx.gas,
-                gasPrice: tx.gasPrice,
-                input: tx.input?.substring(0, 100) + '...',
-              });
-            } catch (txError) {
-              console.error(`❌ Erreur lors de la récupération des détails de tx:`, txError.message);
-            }
-
-            // Essayer de faire un eth_call pour voir l'erreur de revert
-            try {
-              const tx = await walletClient.request({
-                method: "eth_getTransactionByHash",
-                params: [txHash],
-              });
-              
-              if (tx) {
-                console.log(`🔍 Tentative de simulation de la transaction échouée...`);
-                await walletClient.request({
-                  method: "eth_call",
-                  params: [{
-                    from: tx.from,
-                    to: tx.to,
-                    data: tx.input,
-                    value: tx.value,
-                    gas: tx.gas,
-                  }, "latest"],
-                });
-              }
-            } catch (callError) {
-              console.error(`🔍 Erreur détectée via eth_call:`, callError.message);
-              
-              // Parser l'erreur pour extraire le message de revert
-              if (callError.message.includes('revert')) {
-                const revertMatch = callError.message.match(/revert (.+)/);
-                if (revertMatch) {
-                  console.error(`🚫 Message de revert: "${revertMatch[1]}"`);
-                }
-              }
-            }
           }
 
           return receipt;
@@ -255,9 +287,8 @@ class RelayerService {
     return null;
   }
 
-  async processTransaction(playerAddress, action, score, accuracy, transactions) {
+  async processTransaction(playerAddress, action, score, waves_completed, enemies_killed, transactions) {
     console.log(`🎮 Processing: ${action} for ${playerAddress}`);
-    console.log(`📊 Paramètres: score=${score}, transactions=${transactions}`);
     
     const walletClient = await this.getWalletClient();
     const nonce = await this.getNonce(walletClient);
@@ -291,15 +322,20 @@ class RelayerService {
         });
         
       } else if (action === "submitScoreMonad") {
+        // NOUVELLE VALIDATION AVANT SOUMISSION AU CONTRAT
+        this.validateScoreSubmission(playerAddress, score, waves_completed, enemies_killed, transactions);
+        
         // Soumission de score au contrat Monad
         if (typeof score !== "number" || typeof transactions !== "number") {
           throw new Error("Paramètres 'score' ou 'transactions' invalides");
         }
 
-        console.log(`🏆 Preparing Monad transaction:`);
+        console.log(`🏆 Preparing Monad transaction (VALIDÉ):`);
         console.log(`  - Player: ${playerAddress}`);
         console.log(`  - Score: ${score} (BigInt: ${BigInt(score)})`);
         console.log(`  - Transactions: ${transactions} (BigInt: ${BigInt(transactions)})`);
+        console.log(`  - Waves: ${waves_completed}`);
+        console.log(`  - Kills: ${enemies_killed}`);
 
         const monadContract = getContract({
           address: MONAD_CONTRACT_ADDRESS,
@@ -317,12 +353,6 @@ class RelayerService {
           console.log(`⛽ Gas estimé pour updatePlayerData: ${gasEstimate}`);
         } catch (estimateError) {
           console.error(`❌ Erreur estimation gas pour updatePlayerData:`, estimateError.message);
-          
-          // Analyser l'erreur d'estimation
-          if (estimateError.message.includes('revert')) {
-            console.error(`🚫 Le contrat va revert - vérifiez les conditions:`, estimateError.message);
-          }
-          
           gasEstimate = 150000n; // Fallback
         }
 
@@ -353,13 +383,17 @@ class RelayerService {
       
     } catch (error) {
       console.error("❌ Erreur transaction:", error);
-      console.error("❌ Stack trace:", error.stack);
+      
+      // Si c'est une erreur de validation, la propager directement
+      if (error.message && (error.message.includes('Score validation failed') || error.message.includes('Rate limit'))) {
+        throw error;
+      }
       
       // Gestion des erreurs de nonce (reset et retry)
       if (error.message && (error.message.includes("nonce too low") || error.message.includes("higher priority"))) {
         console.log("🔄 Reset nonce et retry...");
         
-        // Reset le nonce
+        // Reset le nonce et retry (logique existante)
         const nonceHex = await walletClient.request({
           method: "eth_getTransactionCount",
           params: [walletClient.account.address, "pending"],
@@ -422,7 +456,7 @@ class RelayerService {
       throw new Error(`Adresse invalide: "${playerAddress}". Doit être une adresse Ethereum valide.`);
     }
     
-    console.log(`✅ Validation réussie pour ${action} - ${playerAddress}`);
+    console.log(`✅ Validation requête réussie pour ${action} - ${playerAddress}`);
     return true;
   }
 }
@@ -452,38 +486,36 @@ export default async function handler(req, res) {
     console.log('📨 Relay request received:', JSON.stringify(req.body, null, 2));
     
     // Vérifier les variables d'environnement
-    const envCheck = {
-      RELAYER_PK: !!process.env.RELAYER_PK,
-      MONAD_RPC_URL: !!process.env.MONAD_RPC_URL,
-      MONAD_CHAIN_ID: !!process.env.MONAD_CHAIN_ID,
-    };
-    console.log(`🔧 Variables d'environnement:`, envCheck);
-
-    if (!process.env.RELAYER_PK) {
-      console.error('❌ RELAYER_PK missing');
+    if (!process.env.RELAYER_PK || !process.env.MONAD_RPC_URL) {
       return res.status(500).json({ 
         error: 'Configuration error', 
-        details: 'RELAYER_PK not configured' 
+        details: 'Missing environment variables' 
       });
     }
 
-    if (!process.env.MONAD_RPC_URL) {
-      console.error('❌ MONAD_RPC_URL missing');
-      return res.status(500).json({ 
-        error: 'Configuration error', 
-        details: 'MONAD_RPC_URL not configured' 
-      });
-    }
-
-    const { playerAddress, action, score, accuracy, transactions } = req.body;
+    const { 
+      playerAddress, 
+      action, 
+      score, 
+      transactions,
+      waves_completed,
+      enemies_killed
+    } = req.body;
     
-    console.log(`🔨 Requête reçue: action="${action}", player="${playerAddress}"`);
+    console.log(`📨 Requête reçue: action="${action}", player="${playerAddress}"`);
     
     const relayer = new RelayerService();
     relayer.validateRequest(playerAddress, action);
     
     // Utiliser la queue pour éviter les conflits
-    const txHash = await relayer.processTransactionWithQueue(playerAddress, action, score, accuracy, transactions);
+    const txHash = await relayer.processTransactionWithQueue(
+      playerAddress, 
+      action, 
+      score, 
+      waves_completed, 
+      enemies_killed, 
+      transactions
+    );
     
     const result = {
       success: true,
@@ -500,7 +532,6 @@ export default async function handler(req, res) {
   } catch (error) {
     const processingTime = Date.now() - startTime;
     console.error('❌ Relay request failed:', error);
-    console.error('❌ Error stack:', error.stack);
     console.log(`⏱️ Temps avant erreur: ${processingTime}ms`);
     console.log(`🏁 ===== FIN REQUÊTE RELAYER (ERREUR) =====\n`);
     

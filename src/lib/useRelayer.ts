@@ -11,9 +11,17 @@ interface RelayerResponse {
   error?: string;
 }
 
+// Nouvelle interface pour la soumission de score complète
+interface ScoreSubmission {
+  score: number;
+  waves_completed: number;
+  enemies_killed: number;
+  total_transactions: number;
+}
+
 type useRelayerReturn = {
   click: (playerAddress?: string) => Promise<void>;
-  submitScoreMonad: (score: number, transactions: number, playerAddress?: string) => Promise<void>;
+  submitScoreMonad: (submission: ScoreSubmission, playerAddress?: string) => Promise<void>;
   
   isLoading: boolean;
   error: string | null;
@@ -60,6 +68,8 @@ export function useRelayer(): useRelayerReturn {
     additionalParams: Record<string, any> = {}
   ): Promise<RelayerResponse> => {
     try {
+      console.log(`🔗 Appel relayer: ${action} pour ${playerAddress}`);
+      console.log(`📊 Paramètres:`, additionalParams);
       
       const response = await fetch(RELAYER_API_URL, {
         method: 'POST',
@@ -102,10 +112,9 @@ export function useRelayer(): useRelayerReturn {
     }
   }, [userAddress, makeRelayerCall]);
 
-  // Soumission de score au contrat Monad
+  // Soumission de score au contrat Monad avec validation complète
   const submitScoreMonad = useCallback(async (
-    score: number, 
-    transactions: number, 
+    submission: ScoreSubmission, 
     playerAddress?: string
   ) => {
     const targetAddress = playerAddress || userAddress;
@@ -116,20 +125,36 @@ export function useRelayer(): useRelayerReturn {
     
     setIsLoading(true);
     setError(null);
+    
     try {
-      
-      
-      const result = await makeRelayerCall('submitScoreMonad', targetAddress, { 
-        score, 
-        transactions 
+      console.log('🏆 Soumission score Monad avec validation complète:');
+      console.log('📊 Données:', {
+        playerAddress: targetAddress,
+        score: submission.score,
+        waves_completed: submission.waves_completed,
+        enemies_killed: submission.enemies_killed,
+        total_transactions: submission.total_transactions
       });
+      
+      const result = await makeRelayerCall('submitScoreMonad', targetAddress, {
+        // Garder la compatibilité avec l'ancien format pour le contrat
+        score: submission.score, 
+        transactions: submission.total_transactions,
+        // Ajouter les nouvelles données pour la validation
+        waves_completed: submission.waves_completed,
+        enemies_killed: submission.enemies_killed
+      });
+      
       if (result.success && result.txHash) {
         setTxHashes(prev => [...prev, result.txHash!]);
+        console.log('✅ Score soumis au contrat Monad avec succès');
       } else {
         setError(result.error || 'Submit score to Monad failed');
       }
     } catch (e) {
-      setError((e as Error).message);
+      const errorMessage = (e as Error).message;
+      console.error('❌ Erreur soumission score Monad:', errorMessage);
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
