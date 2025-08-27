@@ -685,8 +685,6 @@ const submitToLeaderboard = useCallback(async () => {
   setHasSubmittedScore(true);
 
   try {
-    console.log('📤 Début soumission score:', { score, wave: wave - 1, kills: zombiesKilled });
-
     // 1. Soumettre au leaderboard classique
     await submitScore({
       username: userData.monadUsername,
@@ -698,7 +696,7 @@ const submitToLeaderboard = useCallback(async () => {
 
     // 2. Soumettre au contrat Monad si activé
     if (BLOCKCHAIN_TX_ENABLED && playerAddress) {
-      console.log('📋 Soumission vers contrat Monad...');
+   
       await submitScoreMonad({
         score: score,
         waves_completed: wave - 1,
@@ -707,7 +705,7 @@ const submitToLeaderboard = useCallback(async () => {
       });
     }
 
-    console.log('✅ Score soumis avec succès');
+    
     
 
   } catch (error) {
@@ -726,7 +724,7 @@ const submitToLeaderboard = useCallback(async () => {
       !hasSubmittedScore &&
       !isSubmittingToLeaderboard) {
 
-    console.log('🎮 Game Over détecté - préparation soumission score');
+    
     
     const timeoutId = setTimeout(() => {
       submitToLeaderboard();

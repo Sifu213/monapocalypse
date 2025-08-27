@@ -63,7 +63,7 @@ const leaderboardHandler = async (req, res) => {
       console.log('❌ Invalid score value:', score);
       return res.status(400).json({
         success: false,
-        error: 'Invalid score value'
+        error: 'Score failed'
       });
     }
 
@@ -71,7 +71,7 @@ const leaderboardHandler = async (req, res) => {
       console.log('❌ Invalid waves completed value:', waves_completed);
       return res.status(400).json({
         success: false,
-        error: 'Invalid waves completed value'
+        error: 'Score failed'
       });
     }
 
@@ -79,7 +79,7 @@ const leaderboardHandler = async (req, res) => {
       console.log('❌ Invalid enemies killed value:', enemies_killed);
       return res.status(400).json({
         success: false,
-        error: 'Invalid enemies killed value'
+        error: 'Score failed'
       });
     }
 
@@ -99,7 +99,7 @@ const leaderboardHandler = async (req, res) => {
       console.log('❌ Rate limit: Recent submission found for wallet:', wallet_address);
       return res.status(429).json({
         success: false,
-        error: 'Rate limit: Please wait before submitting another score'
+        error: 'Score failed'
       });
     }
 
