@@ -68,8 +68,7 @@ export function useRelayer(): useRelayerReturn {
     additionalParams: Record<string, any> = {}
   ): Promise<RelayerResponse> => {
     try {
-      console.log(`🔗 Appel relayer: ${action} pour ${playerAddress}`);
-      console.log(`📊 Paramètres:`, additionalParams);
+      
       
       const response = await fetch(RELAYER_API_URL, {
         method: 'POST',
@@ -127,14 +126,7 @@ export function useRelayer(): useRelayerReturn {
     setError(null);
     
     try {
-      console.log('🏆 Soumission score Monad avec validation complète:');
-      console.log('📊 Données:', {
-        playerAddress: targetAddress,
-        score: submission.score,
-        waves_completed: submission.waves_completed,
-        enemies_killed: submission.enemies_killed,
-        total_transactions: submission.total_transactions
-      });
+      
       
       const result = await makeRelayerCall('submitScoreMonad', targetAddress, {
         // Garder la compatibilité avec l'ancien format pour le contrat
@@ -147,7 +139,7 @@ export function useRelayer(): useRelayerReturn {
       
       if (result.success && result.txHash) {
         setTxHashes(prev => [...prev, result.txHash!]);
-        console.log('✅ Score soumis au contrat Monad avec succès');
+       
       } else {
         setError(result.error || 'Submit score to Monad failed');
       }
