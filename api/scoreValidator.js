@@ -65,13 +65,19 @@ const calculateEnemiesForWave = (waveNumber) => {
 
 /**
  * Calcule le nombre maximum d'ennemis possibles pour un nombre de vagues données
+ * CORRECTION : Inclut la vague en cours (vague suivante) où le joueur est mort
  */
 const calculateMaxEnemiesForWaves = (wavesCompleted) => {
   let totalEnemies = 0;
   
+  // Compter les ennemis des vagues complétées
   for (let wave = 1; wave <= wavesCompleted; wave++) {
     totalEnemies += calculateEnemiesForWave(wave);
   }
+  
+  // NOUVEAU : Ajouter les ennemis de la vague en cours (où le joueur est mort)
+  const currentWave = wavesCompleted + 1;
+  totalEnemies += calculateEnemiesForWave(currentWave);
   
   return totalEnemies;
 };
@@ -86,16 +92,17 @@ const calculateMaxScoreForWavesAndKills = (wavesCompleted, enemiesKilled) => {
   const BOSS_POINTS = 100;
 
   // Pour être généreux dans la validation, on suppose le meilleur cas :
-  // On calcule combien de boss maximum il peut y avoir
-  const maxBossWaves = Math.floor(wavesCompleted / CONFIG.DIFFICULTY.BOSS_WAVE_INTERVAL);
+  // On calcule combien de boss maximum il peut y avoir (vagues complétées + vague en cours)
+  const totalWaves = wavesCompleted + 1; // Inclure la vague en cours
+  const maxBossWaves = Math.floor(totalWaves / CONFIG.DIFFICULTY.BOSS_WAVE_INTERVAL);
   const maxBosses = maxBossWaves;
   
   // Le reste des kills, on suppose que c'est du meilleur ratio (chogs > zombies)
   let remainingKills = Math.max(0, enemiesKilled - maxBosses);
   
-  // Calculer le nombre de chogs maximum possibles
+  // Calculer le nombre de chogs maximum possibles (incluant vague en cours)
   let maxChogs = 0;
-  for (let wave = CONFIG.DIFFICULTY.CHOG_START_WAVE; wave <= wavesCompleted; wave++) {
+  for (let wave = CONFIG.DIFFICULTY.CHOG_START_WAVE; wave <= totalWaves; wave++) {
     const isBossWave = wave % CONFIG.DIFFICULTY.BOSS_WAVE_INTERVAL === 0;
     
     if (isBossWave) {
@@ -147,21 +154,23 @@ const validateScore = (submission) => {
     validationErrors.push('Score invalide');
   }
 
-  // Validation de cohérence : vagues vs kills
-  if (waves_completed > 0) {
+  // Validation de cohérence : vagues vs kills (avec marge généreuse)
+  if (waves_completed >= 0) {
     const maxPossibleEnemies = calculateMaxEnemiesForWaves(waves_completed);
     
-    if (enemies_killed > maxPossibleEnemies * 1.1) { // Marge de 10% pour les approximations
-      validationErrors.push(`Nombre d'ennemis tués trop élevé pour ${waves_completed} vagues (max théorique: ${maxPossibleEnemies})`);
+    // Marge plus généreuse de 20% pour éviter les faux positifs
+    if (enemies_killed > maxPossibleEnemies * 1.2) {
+      validationErrors.push(`Nombre d'ennemis tués trop élevé pour ${waves_completed} vagues (max théorique avec marge: ${Math.floor(maxPossibleEnemies * 1.2)})`);
     }
   }
 
-  // Validation de cohérence : score vs vagues/kills
-  if (waves_completed > 0 && enemies_killed > 0) {
+  // Validation de cohérence : score vs vagues/kills (avec marge généreuse)
+  if (waves_completed >= 0 && enemies_killed > 0) {
     const maxPossibleScore = calculateMaxScoreForWavesAndKills(waves_completed, enemies_killed);
     
-    if (score > maxPossibleScore * 1.1) { // Marge de 10% pour les approximations
-      validationErrors.push(`Score trop élevé pour ${waves_completed} vagues et ${enemies_killed} kills (max théorique: ${maxPossibleScore})`);
+    // Marge plus généreuse de 20% pour éviter les faux positifs
+    if (score > maxPossibleScore * 1.2) {
+      validationErrors.push(`Score trop élevé pour ${waves_completed} vagues et ${enemies_killed} kills (max théorique avec marge: ${Math.floor(maxPossibleScore * 1.2)})`);
     }
   }
 
@@ -186,8 +195,8 @@ const validateScore = (submission) => {
   }
 
   if (enemies_killed > 0 && waves_completed > 0) {
-    const avgKillsPerWave = enemies_killed / waves_completed;
-    if (avgKillsPerWave > 200) { // Très généreux, mais évite les valeurs absurdes
+    const avgKillsPerWave = enemies_killed / (waves_completed + 1); // +1 pour la vague en cours
+    if (avgKillsPerWave > 100) { // Plus réaliste
       validationErrors.push('Ratio kills/vague suspicieusement élevé');
     }
   }
@@ -196,10 +205,11 @@ const validateScore = (submission) => {
     isValid: validationErrors.length === 0,
     errors: validationErrors,
     details: {
-      maxPossibleEnemies: waves_completed > 0 ? calculateMaxEnemiesForWaves(waves_completed) : 0,
-      maxPossibleScore: waves_completed > 0 && enemies_killed > 0 ? calculateMaxScoreForWavesAndKills(waves_completed, enemies_killed) : 0,
-      avgKillsPerWave: waves_completed > 0 ? (enemies_killed / waves_completed).toFixed(2) : 0,
-      scorePerKill: enemies_killed > 0 ? (score / enemies_killed).toFixed(2) : 0
+      maxPossibleEnemies: calculateMaxEnemiesForWaves(waves_completed),
+      maxPossibleScore: waves_completed >= 0 && enemies_killed > 0 ? calculateMaxScoreForWavesAndKills(waves_completed, enemies_killed) : 0,
+      avgKillsPerWave: waves_completed >= 0 ? (enemies_killed / (waves_completed + 1)).toFixed(2) : 0,
+      scorePerKill: enemies_killed > 0 ? (score / enemies_killed).toFixed(2) : 0,
+      wavesIncludingCurrent: waves_completed + 1
     }
   };
 };
