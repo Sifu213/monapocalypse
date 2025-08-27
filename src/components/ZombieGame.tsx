@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRelayer } from '../lib/useRelayer';
 import { useLeaderboard } from '../hooks/useLeaderboard';
 
-// CSS optimisé en tant que chaîne
 const flickerCSS = `
   @keyframes flicker {
     0% { opacity: 0.8; transform: scale(1); }
@@ -14,7 +13,6 @@ const flickerCSS = `
   }
 `;
 
-// Injection unique du CSS
 if (!document.head.querySelector('[data-flicker-styles]')) {
   const style = document.createElement('style');
   style.textContent = flickerCSS;
@@ -22,7 +20,6 @@ if (!document.head.querySelector('[data-flicker-styles]')) {
   document.head.appendChild(style);
 }
 
-// Types optimisés avec des interfaces plus strictes
 interface Player {
   x: number;
   y: number;
@@ -88,7 +85,6 @@ interface ShieldBonus {
   timeLeft: number;
 }
 
-// Types pour améliorer la performance
 type BulletType = 'normal' | 'shotgun' | 'laser' | 'plasma' | 'rocket';
 type WeaponType = 'shotgun' | 'laser' | 'plasma' | 'rocket';
 type PowerUpType = 'health' | 'shield';
@@ -99,7 +95,6 @@ interface ZombieGameProps {
   userData: { monadUsername: string | null; crossAppWallet: string | null };
 }
 
-// Configuration centralisée et optimisée
 const CONFIG = {
   GAME: {
     WIDTH: 1200,
@@ -220,19 +215,16 @@ const CONFIG = {
 
 const BLOCKCHAIN_TX_ENABLED = import.meta.env.VITE_ENABLE_BLOCKCHAIN_TX === '1';
 
-// Fonction utilitaire pour sélectionner un boss aléatoire
 const getRandomBossType = (): BossType => {
   const bossTypes: BossType[] = ['destroyer', 'titan', 'nightmare', 'overlord'];
   return bossTypes[Math.floor(Math.random() * bossTypes.length)];
 };
 
-// Fonction utilitaire pour calculer la vitesse limitée des ennemis
 const calculateLimitedSpeed = (baseSpeed: number, speedPerWave: number, waveNumber: number, maxSpeed: number): number => {
   const calculatedSpeed = baseSpeed + (waveNumber * speedPerWave);
   return Math.min(calculatedSpeed, maxSpeed);
 };
 
-// Fonction utilitaire pour créer des sons
 const createSound = (src: string, volume = 0.5) => {
   try {
     const audio = new Audio(src);
@@ -246,7 +238,6 @@ const createSound = (src: string, volume = 0.5) => {
 
 
 export default function ZombieGame({ userData }: ZombieGameProps) {
-  // Refs optimisées
   const gameRef = useRef<HTMLDivElement>(null);
   const animationRef = useRef<number>(0);
   const keysRef = useRef<Record<string, boolean>>({});
@@ -256,7 +247,6 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
   const bulletCounterRef = useRef<number>(0);
   const musicRef = useRef<HTMLAudioElement | null>(null);
 
-  // États principaux
   const [gameState, setGameState] = useState<GameState>('menu');
   const [player, setPlayer] = useState<Player>({
     x: CONFIG.GAME.WIDTH / 2,
@@ -275,14 +265,13 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
   const [shieldBonus, setShieldBonus] = useState<ShieldBonus>({ active: false, timeLeft: 0 });
   const [isMouseDown, setIsMouseDown] = useState<boolean>(false);
   const [lastShotTime, setLastShotTime] = useState<number>(0);
-  const [lastRocketTime, setLastRocketTime] = useState<number>(0); // Nouveau: cooldown spécial pour rocket
+  const [lastRocketTime, setLastRocketTime] = useState<number>(0); 
   const [wave, setWave] = useState(1);
   const [score, setScore] = useState(0);
   const [zombiesKilled, setZombiesKilled] = useState(0);
   const [totalTransactions, setTotalTransactions] = useState(0);
   const [playerRotation, setPlayerRotation] = useState(0);
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [submitMessage, setSubmitMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [isSpawning, setIsSpawning] = useState(false);
   const spawnTimeoutsRef = useRef<NodeJS.Timeout[]>([]);
   const [hasSubmittedScore, setHasSubmittedScore] = useState(false);
@@ -303,7 +292,7 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
     window.open(twitterIntentUrl, '_blank');
   };
 
-  // Fonctions de validation optimisées avec useMemo
+
   const bulletValidators = useMemo(() => ({
     isOutOfBounds: (bullet: Bullet): boolean => (
       bullet.x < 0 || bullet.x > CONFIG.GAME.WIDTH || bullet.y < 0 || bullet.y > CONFIG.GAME.HEIGHT
@@ -313,7 +302,6 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
     )
   }), []);
 
-  // Fonction de nettoyage optimisée
   const cleanupBullets = useCallback((currentBullets: Bullet[]): Bullet[] => {
     const currentTime = Date.now();
     let validBullets = currentBullets.filter(bullet => (
@@ -330,7 +318,6 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
     return validBullets;
   }, [bulletValidators]);
 
-  // Fonctions audio optimisées
   const audioFunctions = useMemo(() => ({
     playShoot: () => soundEnabled && createSound('/sounds/bullet.wav', 0.3)?.play().catch(() => { }),
     playLaser: () => soundEnabled && createSound('/sounds/laser.wav', 0.4)?.play().catch(() => { }),
@@ -342,7 +329,6 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
     playBoss: () => soundEnabled && createSound('/sounds/boss.mp3', 0.4)?.play().catch(() => { }),
   }), [soundEnabled]);
 
-  // Gestion de la musique optimisée
   const musicFunctions = useMemo(() => ({
     init: () => {
       if (!musicRef.current) {
@@ -369,23 +355,22 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
         return newValue;
       });
     }
-  }), [soundEnabled]); // Retirer gameState des dépendances
+  }), [soundEnabled]); 
 
-  // Fonction pour calculer les dégâts optimisée
+  
   const calculateDamage = useCallback((bulletType: BulletType, zombieType: 'normal' | 'chog' | 'boss'): number => {
-    // Gestion spéciale pour les balles normales et shotgun
+  
     if (bulletType === 'normal' || bulletType === 'shotgun') {
       if (zombieType === 'boss') return CONFIG.DIFFICULTY.BULLET_DAMAGE_BOSS;
       if (zombieType === 'chog') return CONFIG.DIFFICULTY.BULLET_DAMAGE_CHOG;
       return CONFIG.DIFFICULTY.BULLET_DAMAGE_ZOMBIE;
     }
 
-    // Pour laser, plasma, rocket
     const damageKey = `${bulletType.toUpperCase()}_DAMAGE_${zombieType.toUpperCase()}` as keyof typeof CONFIG.DIFFICULTY;
     return CONFIG.DIFFICULTY[damageKey] as number || CONFIG.DIFFICULTY.BULLET_DAMAGE_ZOMBIE;
   }, []);
 
-  // Fonction pour créer des drops optimisée
+
   const createDrop = useCallback((x: number, y: number, type: 'weapon' | 'powerup', isBoss = false) => {
     const dropChance = isBoss ?
       (type === 'weapon' ? CONFIG.DROPS.WEAPON_DROP_RATE_BOSS : CONFIG.DROPS.POWERUP_DROP_RATE_BOSS) :
@@ -405,7 +390,6 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
     }
   }, []);
 
-  // Fonction pour tuer un zombie optimisée
   const killZombie = useCallback((zombie: Zombie) => {
     const points = zombie.isBoss ? 100 : zombie.isChog ? 15 : 10;
     setScore(prev => prev + points);
@@ -415,7 +399,7 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
     createDrop(zombie.x, zombie.y, 'powerup', zombie.isBoss);
   }, [authenticated, playerAddress, click, createDrop]);
 
-  // Fonction pour créer des explosions optimisée
+
   const createExplosion = useCallback((x: number, y: number, type: 'plasma' | 'rocket') => {
     const config = type === 'plasma' ?
       { radius: CONFIG.DIFFICULTY.PLASMA_EXPLOSION_RADIUS, setter: setPlasmaExplosions } :
@@ -433,7 +417,6 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
     config.setter(prev => [...prev, newExplosion]);
     if (type === 'rocket') audioFunctions.playExplosion();
 
-    // Vérifier dégâts au joueur pour rocket
     if (type === 'rocket' && !shieldBonus.active) {
       const playerDistance = Math.sqrt((player.x - x) ** 2 + (player.y - y) ** 2);
       if (playerDistance <= CONFIG.DIFFICULTY.ROCKET_SAFE_DISTANCE) {
@@ -444,7 +427,6 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
       }
     }
 
-    // Appliquer dégâts aux zombies
     setZombies(prevZombies =>
       prevZombies.map(zombie => {
         const distance = Math.sqrt((zombie.x - x) ** 2 + (zombie.y - y) ** 2);
@@ -464,16 +446,14 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
     );
   }, [player.x, player.y, shieldBonus.active, audioFunctions.playExplosion, calculateDamage, killZombie]);
 
-  // Fonction de tir optimisée
   const fireBullet = useCallback(() => {
     if (gameState !== 'playing') return;
 
     const currentTime = Date.now();
 
-    // Vérification spéciale pour le rocket launcher (1 seconde de cooldown)
     if (weaponBonus.type === 'rocket') {
       if (currentTime - lastRocketTime < 1000) {
-        return; // Empêche le tir si moins d'1 seconde s'est écoulée
+        return; 
       }
       setLastRocketTime(currentTime);
     }
@@ -512,7 +492,6 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
     setBullets(prev => cleanupBullets([...prev, ...newBullets]));
   }, [gameState, player.x, player.y, weaponBonus.type, audioFunctions, cleanupBullets, lastRocketTime]);
 
-  // Gestion des événements optimisée
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => { keysRef.current[e.code] = true; };
     const handleKeyUp = (e: KeyboardEvent) => { keysRef.current[e.code] = false; };
@@ -526,7 +505,6 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
     };
   }, []);
 
-  // Gestion de la souris optimisée
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (gameState !== 'playing') return;
 
@@ -546,9 +524,9 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
     if (gameState !== 'playing') return;
     setIsMouseDown(true);
 
-    // Pour le rocket launcher, ne pas réinitialiser lastShotTime pour éviter le tir immédiat en boucle
+
     if (weaponBonus.type !== 'rocket') {
-      setLastShotTime(0); // Permettre le tir immédiat pour les autres armes
+      setLastShotTime(0); 
     }
 
     fireBullet();
@@ -557,7 +535,7 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
   const handleMouseUp = useCallback(() => setIsMouseDown(false), []);
 
   const spawnZombies = useCallback((waveNumber: number) => {
-    // Nettoyer les timeouts précédents
+ 
     spawnTimeoutsRef.current.forEach(timeout => clearTimeout(timeout));
     spawnTimeoutsRef.current = [];
 
@@ -580,7 +558,7 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
       const baseId = Date.now() + index;
 
       if (type === 'boss') {
-        // Sélectionner un type de boss aléatoire
+        
         const bossType = getRandomBossType();
         const bossConfig = CONFIG.BOSS_TYPES[bossType];
 
@@ -631,7 +609,7 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
       }
     };
 
-    // Créer tous les zombies qui vont apparaître
+ 
     if (isBossWave) {
       audioFunctions.playBoss();
       newZombies.push(createZombie('boss'));
@@ -662,9 +640,9 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
       }
     }
 
-    // Programmer l'apparition de chaque zombie avec un délai aléatoire
+
     newZombies.forEach((zombie, index) => {
-      // Délai aléatoire entre MIN_DELAY et une portion de DURATION
+   
       const maxDelayForThisZombie = CONFIG.SPAWN.DURATION * CONFIG.SPAWN.OVERLAP_FACTOR;
       const randomDelay = Math.random() * (maxDelayForThisZombie - CONFIG.SPAWN.MIN_DELAY) + CONFIG.SPAWN.MIN_DELAY;
 
@@ -680,29 +658,36 @@ export default function ZombieGame({ userData }: ZombieGameProps) {
       spawnTimeoutsRef.current.push(timeout);
     });
 
-    // Nettoyer la liste des zombies existants pour commencer fresh
+  
     setZombies([]);
     waveTransitionRef.current = false;
   }, [audioFunctions.playBoss]);
 
-  // Dans ZombieGame.tsx, remplacer cette partie dans submitToLeaderboard :
 
 const submitToLeaderboard = useCallback(async () => {
-  // Vérification de garde supplémentaire
+
   if (!userData.monadUsername ||
     !userData.crossAppWallet ||
     !authenticated ||
     isSubmittingToLeaderboard ||
-    submitMessage?.type === 'success' ||
-    hasSubmittedScore) {
+    hasSubmittedScore) { 
     
+    console.log('⏭️ Soumission ignorée - conditions non remplies:', {
+      hasUsername: !!userData.monadUsername,
+      hasWallet: !!userData.crossAppWallet,
+      isAuth: authenticated,
+      isSubmitting: isSubmittingToLeaderboard,
+      hasSubmitted: hasSubmittedScore
+    });
     return;
   }
 
-  try {
-    
-    setSubmitMessage(null);
+  setHasSubmittedScore(true);
 
+  try {
+    console.log('📤 Début soumission score:', { score, wave: wave - 1, kills: zombiesKilled });
+
+    // 1. Soumettre au leaderboard classique
     await submitScore({
       username: userData.monadUsername,
       wallet_address: userData.crossAppWallet,
@@ -711,9 +696,9 @@ const submitToLeaderboard = useCallback(async () => {
       score: score
     });
 
-    // 2. Soumettre au contrat Monad avec validation complète
+    // 2. Soumettre au contrat Monad si activé
     if (BLOCKCHAIN_TX_ENABLED && playerAddress) {
-      
+      console.log('📋 Soumission vers contrat Monad...');
       await submitScoreMonad({
         score: score,
         waves_completed: wave - 1,
@@ -722,39 +707,38 @@ const submitToLeaderboard = useCallback(async () => {
       });
     }
 
-    setSubmitMessage({ type: 'success', text: 'Score soumis avec succès au leaderboard !' });
+    console.log('✅ Score soumis avec succès');
     
 
   } catch (error) {
     console.error('❌ Erreur lors de la soumission du score:', error);
+     
     
-    // Messages d'erreur plus spécifiques
-    let errorMessage = 'Erreur lors de la soumission du score.';
-    
-    
-    setSubmitMessage({ type: 'error', text: errorMessage });
-    setHasSubmittedScore(false); // Permettre un retry en cas d'erreur
   }
-}, [userData, authenticated, score, wave, zombiesKilled, submitScore, isSubmittingToLeaderboard, submitMessage?.type, playerAddress, submitScoreMonad, totalTransactions, hasSubmittedScore]);
-  // Soumission automatique au leaderboard en cas de game over
+}, [userData, authenticated, score, wave, zombiesKilled, submitScore, isSubmittingToLeaderboard, playerAddress, submitScoreMonad, totalTransactions, hasSubmittedScore]);
+
   useEffect(() => {
-    if (gameState === 'gameOver' &&
+  
+  if (gameState === 'gameOver' &&
       userData.monadUsername &&
       userData.crossAppWallet &&
       authenticated &&
-      !hasSubmittedScore) {
+      !hasSubmittedScore &&
+      !isSubmittingToLeaderboard) {
 
-      
+    console.log('🎮 Game Over détecté - préparation soumission score');
+    
+    const timeoutId = setTimeout(() => {
       submitToLeaderboard();
-      setHasSubmittedScore(true);
-    }
-  }, [gameState, userData.monadUsername, userData.crossAppWallet, authenticated, hasSubmittedScore, submitToLeaderboard]);
+    }, 100);
+
+    return () => clearTimeout(timeoutId);
+  }
+}, [gameState]);
 
 
 
-  // Fonction de démarrage optimisée
   const startGame = useCallback(() => {
-    // Nettoyer les timeouts de spawn précédents
     spawnTimeoutsRef.current.forEach(timeout => clearTimeout(timeout));
     spawnTimeoutsRef.current = [];
 
@@ -775,7 +759,6 @@ const submitToLeaderboard = useCallback(async () => {
     setScore(0);
     setZombiesKilled(0);
     setTotalTransactions(0);
-    setSubmitMessage(null);
     setIsSpawning(false);
     waveTransitionRef.current = false;
     spawnZombies(1);
@@ -794,15 +777,15 @@ const submitToLeaderboard = useCallback(async () => {
 
   useEffect(() => {
     return () => {
-      // Nettoyer tous les timeouts quand le composant est démonté
+      
       spawnTimeoutsRef.current.forEach(timeout => clearTimeout(timeout));
     };
   }, []);
 
-  // Gestion de la musique selon l'état
+  
   useEffect(() => {
     if ((gameState === 'playing' || gameState === 'waveTransition') && soundEnabled) {
-      // Ne jouer que si la musique est en pause
+      
       if (musicRef.current && musicRef.current.paused) {
         musicRef.current.play().catch(() => { });
       }
@@ -811,7 +794,7 @@ const submitToLeaderboard = useCallback(async () => {
     }
   }, [gameState, soundEnabled]);
 
-  // Transitions de vague
+
   useEffect(() => {
     if (gameState === 'playing' && zombies.length === 0 && !waveTransitionRef.current && !isSpawning) {
       waveTransitionRef.current = true;
@@ -839,7 +822,7 @@ const submitToLeaderboard = useCallback(async () => {
     }
   }, [gameState, wave, spawnZombies, authenticated, playerAddress, click]);
 
-  // Boucle de jeu principale optimisée
+ 
   useEffect(() => {
     if (gameState !== 'playing') return;
 
@@ -1061,7 +1044,7 @@ const submitToLeaderboard = useCallback(async () => {
     };
   }, [gameState, player, zombies, isMouseDown, lastShotTime, weaponBonus.type, shieldBonus.active, fireBullet, cleanupBullets, audioFunctions, createExplosion, calculateDamage, killZombie]);
 
-  // Composants de rendu optimisés
+
   const renderPlayer = useMemo(() => (
     <div
       className="absolute select-none pointer-events-none"
