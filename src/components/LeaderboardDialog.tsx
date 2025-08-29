@@ -68,9 +68,9 @@ export default function LeaderboardDialog({ isOpen, onClose }: LeaderboardDialog
               {/* Header du tableau */}
               <div className="grid grid-cols-12 gap-4 p-3 border-b border-gray-700 text-sm font-semibold text-gray-400">
                 <div className="col-span-1">Rank</div>
-                <div className="col-span-3">Joueur</div>
+                <div className="col-span-3">Player</div>
                 <div className="col-span-2">Score</div>
-                <div className="col-span-2">Vagues</div>
+                <div className="col-span-2">Waves</div>
                 <div className="col-span-2">Kills</div>
                 <div className="col-span-2">Date</div>
               </div>
@@ -130,7 +130,7 @@ export default function LeaderboardDialog({ isOpen, onClose }: LeaderboardDialog
             onClick={onClose}
             className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors duration-200"
           >
-            Fermer
+            Close
           </button>
         </div>
       </div>
